@@ -1,0 +1,9 @@
+*.pyc
+build/*
+dist/*
+*.egg-info/
+MANIFEST
+*nncde_fs_cache
+plots/
+*.csv
+*.sqlite3
