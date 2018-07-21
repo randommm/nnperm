@@ -76,8 +76,6 @@ n_train = x_train.shape[0] - n_test
     batch_max_size : float
         See batch_inital.
 
-    grid_size : integer
-        Set grid size for calculating utility on score method.
     batch_test_size : integer
         Size of the batch for validation and score methods.
         Does not affect training efficiency, usefull when there's
@@ -90,22 +88,21 @@ n_train = x_train.shape[0] - n_test
     def __init__(self,
                  nn_weight_decay=0,
                  nhlayers=10,
-                 hl_nnodes=50,
+                 hl_nnodes=100,
                  convolutional=False,
 
                  es = True,
                  es_validation_set_size = None,
-                 es_give_up_after_nepochs = 50,
+                 es_give_up_after_nepochs = 30,
                  es_splitter_random_state = 0,
 
                  nepoch=200,
 
-                 batch_initial=200,
-                 batch_step_multiplier=1.1,
-                 batch_step_epoch_expon=1.4,
+                 batch_initial=300,
+                 batch_step_multiplier=1.4,
+                 batch_step_epoch_expon=2.0,
                  batch_max_size=1000,
 
-                 grid_size=10000,
                  batch_test_size=2000,
                  gpu=True,
                  verbose=1,
@@ -143,7 +140,7 @@ n_train = x_train.shape[0] - n_test
 
         return self
 
-    def improve_fit(self, x_train, y_train, nepoch):
+    def improve_fit(self, x_train, y_train, nepoch=1):
         if len(y_train.shape) == 1:
             y_train = y_train[:, None]
         criterion = nn.MSELoss()
@@ -431,15 +428,11 @@ n_train = x_train.shape[0] - n_test
                         polayers.append(nn.MaxPool1d(stride=1,
                             kernel_size=5, padding=2))
                         normclayers.append(nn.BatchNorm1d(output_hl_size))
-                        self.add_module("cc_" + str(i), clayers[i])
-                        self.add_module("po_" + str(i), clayers[i])
-                        self.add_module("cc_n_" + str(i), normclayers[i])
-
                         next_input_l_size = output_hl_size
                         self._initialize_layer(clayers[i])
-                    self.clayers = clayers
-                    self.polayers = polayers
-                    self.normclayers = normclayers
+                    self.clayers = nn.ModuleList(clayers)
+                    self.polayers = nn.ModuleList(polayers)
+                    self.normclayers = nn.ModuleList(normclayers)
 
                     faked = torch.randn(2, 1, x_dim)
                     for i in range(self.nclayers):
@@ -454,12 +447,11 @@ n_train = x_train.shape[0] - n_test
                     llayers.append(nn.Linear(next_input_l_size,
                                              output_hl_size))
                     normllayers.append(nn.BatchNorm1d(output_hl_size))
-                    self.add_module("ll_" + str(i), llayers[i])
-                    self.add_module("ll_n_" + str(i), normllayers[i])
                     next_input_l_size = output_hl_size
                     self._initialize_layer(llayers[i])
-                self.llayers = llayers
-                self.normllayers = normllayers
+
+                self.llayers = nn.ModuleList(llayers)
+                self.normllayers = nn.ModuleList(normllayers)
 
                 self.fc_last = nn.Linear(next_input_l_size, y_dim)
                 self._initialize_layer(self.fc_last)
@@ -531,6 +523,7 @@ class NNPTest():
             x_train = x_train[:, None]
         if len(x_to_permutate.shape) == 1:
             x_to_permutate = x_to_permutate[:, None]
+        start_time = time.process_time()
 
         nobs = y_train.shape[0]
         ntest = round(nobs * prop_test)
@@ -554,6 +547,7 @@ class NNPTest():
             x_train_stacked = np.column_stack([x_train, x_to_permutate_train])
             x_test_stacked = np.column_stack([x_test, x_to_permutate_test])
 
+
             nn_predict_obj = NNPredict(*args, **kwargs)
             nn_predict_obj.fit(x_train_stacked, y_train)
 
@@ -562,6 +556,7 @@ class NNPTest():
 
             x_to_permutate_test = x_to_permutate_test[np.random.permutation(range(ntest))]
             x_to_permutate_train = x_to_permutate_train[np.random.permutation(range(ntrain))]
+
 
         self.score_unpermuted = scores[0]
         self.score_permuted = np.array(scores[1:])
@@ -572,4 +567,5 @@ class NNPTest():
         self.quantile = (n1 + n2) / 2
         self.pvalue = np.min([self.quantile, 1 - self.quantile]) * 2
 
-
+        self.elapsed_time = time.process_time() - start_time
+        print("Total testing time:", self.elapsed_time, flush=True)
