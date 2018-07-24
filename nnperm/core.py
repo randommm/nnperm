@@ -543,7 +543,7 @@ class NNPTest():
         y_train = y_train[ind_train]
 
         scores = []
-        for _ in range(nperm):
+        for i in range(nperm):
             x_train_stacked = np.column_stack([x_train, x_to_permutate_train])
             x_test_stacked = np.column_stack([x_test, x_to_permutate_test])
 
@@ -556,6 +556,8 @@ class NNPTest():
 
             x_to_permutate_test = x_to_permutate_test[np.random.permutation(range(ntest))]
             x_to_permutate_train = x_to_permutate_train[np.random.permutation(range(ntrain))]
+
+            print(">>>> Trained", i+1, "neural networks out of", nperm)
 
 
         self.score_unpermuted = scores[0]
