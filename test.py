@@ -38,37 +38,37 @@ from db_structure import Result
 for [distribution, db_size, nh_istrue, nhlayers, hl_nnodes] in (
      itertools.product([1], [10_000, 100_000], [True, False]
         ,[10], [100, 1000])):
+    while True:
+        query = Result.select().where(
+            Result.distribution==distribution, Result.db_size==db_size,
+            Result.nh_istrue==nh_istrue, Result.nhlayers==nhlayers,
+            Result.hl_nnodes==hl_nnodes)
+        if query.count() >= 200:
+            pv_avg = np.mean([res.pvalue for res in query])
+            print("P-values average:", pv_avg)
+            break
 
-    query = Result.select().where(
-        Result.distribution==distribution, Result.db_size==db_size,
-        Result.nh_istrue==nh_istrue, Result.nhlayers==nhlayers,
-        Result.hl_nnodes==hl_nnodes)
-    if query.count() >= 10:
-        pv_avg = np.mean([res.pvalue for res in query])
-        print("P-values average:", pv_avg)
-        continue
+        n_train = db_size
+        x_train, y_train = generate_data(n_train)
 
-    n_train = db_size
-    x_train, y_train = generate_data(n_train)
+        feature_to_test = 3 if nh_istrue else 4
 
-    feature_to_test = 3 if nh_istrue else 4
+        nn_obj = NNPTest(
+        verbose=2,
+        es=True,
+        hl_nnodes=hl_nnodes,
+        nhlayers=nhlayers,
+        y_train = y_train,
+        x_train = x_train[:, -feature_to_test],
+        x_to_permutate = x_train[:, feature_to_test],
+        )
 
-    nn_obj = NNPTest(
-    verbose=2,
-    es=True,
-    hl_nnodes=hl_nnodes,
-    nhlayers=nhlayers,
-    y_train = y_train,
-    x_train = x_train[:, -feature_to_test],
-    x_to_permutate = x_train[:, feature_to_test],
-    )
+        print("Quantile:", nn_obj.quantile)
+        print("Pvalue:", nn_obj.pvalue)
 
-    print("Quantile:", nn_obj.quantile)
-    print("Pvalue:", nn_obj.pvalue)
-
-    Result.create(
-        distribution=distribution, db_size=db_size,
-        nh_istrue=nh_istrue, nhlayers=nhlayers,
-        hl_nnodes=hl_nnodes, quantile=nn_obj.quantile,
-        pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time
-    )
+        Result.create(
+            distribution=distribution, db_size=db_size,
+            nh_istrue=nh_istrue, nhlayers=nhlayers,
+            hl_nnodes=hl_nnodes, quantile=nn_obj.quantile,
+            pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time
+        )
