@@ -29,22 +29,25 @@ beta = stats.norm.rvs(size=x_dim, scale=0.4)
 beta0 = -.3
 sigma = .5
 
-def func(x):
+def func(x, nhlayers):
     x_transf = x.copy()
     for i in range(0, x_dim-5, 5):
         x_transf[i] = np.abs(x[i])**1.3
         x_transf[i+1] = np.cos(x[i+1])
         x_transf[i+2] = x[i]*x[i+2]
-        x_transf[i+3] = x[i+2] * 2
+        if not nhlayers and i == 0:
+            x_transf[3] = x[3] * 2
+        else:
+            x_transf[i+3] = x[i+2] * 2
         x_transf[i+4] = np.sqrt(np.abs(x[i+4]))
         x_transf[i+5] = x[i+5] * np.sin(x[i])
     return np.dot(beta, x_transf)
 
-def generate_data(n_gen):
+def generate_data(n_gen, nhlayers):
     x_gen = stats.skewnorm.rvs(scale=0.1, size=n_gen*x_dim, a=2)
     x_gen = x_gen.reshape((n_gen, x_dim))
 
-    mu_gen = np.apply_along_axis(func, 1, x_gen)
+    mu_gen = np.apply_along_axis(lambda x: func(x, nhlayers), 1, x_gen)
 
     y_gen = stats.skewnorm.rvs(loc=beta0, scale=sigma, size=n_gen, a=4)
     y_gen = mu_gen + y_gen

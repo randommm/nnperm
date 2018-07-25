@@ -35,8 +35,8 @@ import os
 from generate_data import generate_data
 from db_structure import Result
 
-for [distribution, db_size, nh_istrue, nhlayers, hl_nnodes] in (
-     itertools.product([1], [10_000, 100_000], [True, False]
+for [distribution, nh_istrue, db_size, nhlayers, hl_nnodes] in (
+     itertools.product([1], [False, True], [10_000, 100_000]
         ,[10], [100, 1000])):
     while True:
         query = Result.select().where(
@@ -49,7 +49,7 @@ for [distribution, db_size, nh_istrue, nhlayers, hl_nnodes] in (
             break
 
         n_train = db_size
-        x_train, y_train = generate_data(n_train)
+        x_train, y_train = generate_data(n_train, nhlayers)
 
         feature_to_test = 3 if nh_istrue else 4
 
