@@ -45,7 +45,14 @@ for [distribution, nh_istrue, db_size, nhlayers, hl_nnodes] in (
             Result.hl_nnodes==hl_nnodes)
         if query.count() >= 200:
             pv_avg = np.mean([res.pvalue for res in query])
-            print("P-values average:", pv_avg)
+            print(
+                "distribution:", distribution, "\n",
+                "nh_istrue:", nh_istrue, "\n",
+                "db_size:", db_size, "\n",
+                "nhlayers:", nhlayers, "\n",
+                "hl_nnodes:", hl_nnodes,
+            )
+            print("P-values average:", pv_avg, flush=True)
             break
 
         n_train = db_size
@@ -63,12 +70,11 @@ for [distribution, nh_istrue, db_size, nhlayers, hl_nnodes] in (
         x_to_permutate = x_train[:, feature_to_test],
         )
 
-        print("Quantile:", nn_obj.quantile)
         print("Pvalue:", nn_obj.pvalue)
 
         Result.create(
             distribution=distribution, db_size=db_size,
             nh_istrue=nh_istrue, nhlayers=nhlayers,
-            hl_nnodes=hl_nnodes, quantile=nn_obj.quantile,
+            hl_nnodes=hl_nnodes,
             pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time
         )

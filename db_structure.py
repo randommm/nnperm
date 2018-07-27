@@ -8,7 +8,6 @@ class Result(Model):
     nh_istrue = BooleanField()
     nhlayers = IntegerField()
     hl_nnodes = IntegerField()
-    quantile = DoubleField()
     pvalue = DoubleField()
     elapsed_time = DoubleField()
 
