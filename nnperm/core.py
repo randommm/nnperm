@@ -563,11 +563,10 @@ class NNPTest():
         self.score_unpermuted = scores[0]
         self.score_permuted = np.array(scores[1:])
 
-        n1 = (self.score_unpermuted >= self.score_permuted).sum() / nperm
-        n2 = (self.score_unpermuted > self.score_permuted).sum() / nperm
+        n1 = (self.score_unpermuted <= self.score_permuted).sum() / nperm
+        n2 = (self.score_unpermuted < self.score_permuted).sum() / nperm
 
-        self.quantile = (n1 + n2) / 2
-        self.pvalue = np.min([self.quantile, 1 - self.quantile]) * 2
+        self.pvalue = (n1 + n2) / 2
 
         self.elapsed_time = time.process_time() - start_time
         print("Total testing time:", self.elapsed_time, flush=True)
