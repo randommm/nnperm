@@ -56,9 +56,9 @@ for [distribution, nh_istrue, db_size, nhlayers, hl_nnodes] in (
             break
 
         n_train = db_size
-        x_train, y_train = generate_data(n_train, nhlayers)
+        x_train, y_train = generate_data(n_train, nh_istrue)
 
-        feature_to_test = 3 if nh_istrue else 4
+        feature_to_test = 3
 
         nn_obj = NNPTest(
         verbose=2,
