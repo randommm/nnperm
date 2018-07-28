@@ -23,24 +23,26 @@ import torch.nn.functional as F
 import numpy as np
 import scipy.stats as stats
 
-def generate_data(n_gen, nh_istrue):
-    x_dim = 5
-    beta = stats.norm.rvs(size=x_dim, scale=0.4, random_state=0)
+def generate_data(n_gen, betat, distribution):
+    if distribution == 0:
+        x_dim = 5
+    elif distribution == 1:
+        x_dim = 50
+
+    beta = stats.norm.rvs(size=x_dim, scale=0.4, random_state=(x_dim-5))
     beta0 = -.3
     sigma = 1.1
 
-    if nh_istrue:
-        beta[3] = 0
+    beta[3] = betat
 
     def func(x):
         x_transf = x.copy()
-
-        x_transf[0] = np.abs(x[0]) ** 1.3
-        x_transf[1] = np.cos(x[1])
-        x_transf[2] = np.log(np.abs(x[0]*x[2]))
-        x_transf[3] = np.log(np.abs(x[3]))
-        x_transf[4] = np.sqrt(np.abs(x[4]))
-
+        for i in range(0, x_dim, 5):
+            x_transf[i] = np.abs(x[i]) ** 1.3
+            x_transf[i+1] = np.cos(x[i+1])
+            x_transf[i+2] = np.log(np.abs(x[i]*x[i+2]))
+            x_transf[i+3] = np.log(np.abs(x[i+3]))
+            x_transf[i+4] = np.sqrt(np.abs(x[i+4]))
         return np.dot(beta, x_transf)
 
     x_gen = stats.skewnorm.rvs(scale=0.1, size=n_gen*x_dim, a=2)

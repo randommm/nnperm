@@ -5,7 +5,7 @@ db = SqliteDatabase('results.sqlite3')
 class Result(Model):
     distribution = IntegerField()
     db_size = IntegerField()
-    nh_istrue = BooleanField()
+    betat = DoubleField()
     nhlayers = IntegerField()
     hl_nnodes = IntegerField()
     pvalue = DoubleField()

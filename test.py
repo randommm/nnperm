@@ -35,13 +35,13 @@ import os
 from generate_data import generate_data
 from db_structure import Result
 
-for [distribution, nh_istrue, db_size, nhlayers, hl_nnodes] in (
-     itertools.product([1], [False, True], [10_000, 100_000]
-        ,[10], [100, 1000])):
+for [db_size, distribution, nhlayers, hl_nnodes] in (
+     itertools.product([1_000, 10_000], [0], [10], [100])):
     while True:
+        betat = np.random.choice([0, 0.01, 0.05, 0.1, 0.3, 0.6])
         query = Result.select().where(
             Result.distribution==distribution, Result.db_size==db_size,
-            Result.nh_istrue==nh_istrue, Result.nhlayers==nhlayers,
+            Result.betat==betat, Result.nhlayers==nhlayers,
             Result.hl_nnodes==hl_nnodes)
         if query.count() >= 200:
             pv_avg = np.mean([res.pvalue for res in query])
@@ -56,7 +56,7 @@ for [distribution, nh_istrue, db_size, nhlayers, hl_nnodes] in (
             break
 
         n_train = db_size
-        x_train, y_train = generate_data(n_train, nh_istrue)
+        x_train, y_train = generate_data(n_train, betat, distribution)
 
         feature_to_test = 3
 
@@ -74,7 +74,7 @@ for [distribution, nh_istrue, db_size, nhlayers, hl_nnodes] in (
 
         Result.create(
             distribution=distribution, db_size=db_size,
-            nh_istrue=nh_istrue, nhlayers=nhlayers,
+            betat=betat, nhlayers=nhlayers,
             hl_nnodes=hl_nnodes,
             pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time
         )
