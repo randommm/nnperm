@@ -516,7 +516,8 @@ n_train = x_train.shape[0] - n_test
 
 class NNPTest():
     def __init__(self, x_train, y_train, x_to_permutate, nperm=100,
-                 prop_test = 0.1, *args, **kwargs):
+                 prop_test = 0.1, retrain_permutations=True,
+                 *args, **kwargs):
         if len(y_train.shape) == 1:
             y_train = y_train[:, None]
         if len(x_train.shape) == 1:
@@ -547,9 +548,9 @@ class NNPTest():
             x_train_stacked = np.column_stack([x_train, x_to_permutate_train])
             x_test_stacked = np.column_stack([x_test, x_to_permutate_test])
 
-
-            nn_predict_obj = NNPredict(*args, **kwargs)
-            nn_predict_obj.fit(x_train_stacked, y_train)
+            if retrain_permutations or i == 0:
+                nn_predict_obj = NNPredict(*args, **kwargs)
+                nn_predict_obj.fit(x_train_stacked, y_train)
 
             score = nn_predict_obj.score(x_test_stacked, y_test)
             scores.append(score)
@@ -557,7 +558,9 @@ class NNPTest():
             x_to_permutate_test = x_to_permutate_test[np.random.permutation(range(ntest))]
             x_to_permutate_train = x_to_permutate_train[np.random.permutation(range(ntrain))]
 
-            print(">>>> Trained", i+1, "neural networks out of", nperm)
+            if retrain_permutations:
+                print(">>>> Trained", i+1,
+                    "neural networks out of", nperm)
 
 
         self.score_unpermuted = scores[0]
