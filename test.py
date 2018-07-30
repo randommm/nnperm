@@ -40,7 +40,9 @@ from db_structure import Result
 
 db_size_sample = {1_000, 10_000}
 betat_sample = {0, 0.01, 0.05, 0.1, 0.3, 0.6}
-full_sample = set(itertools.product(db_size_sample, betat_sample))
+retrain_permutations_sample = {True, False}
+full_sample = set(itertools.product(db_size_sample, betat_sample,
+    retrain_permutations_sample))
 
 distribution = 0
 nhlayers = 10
@@ -50,12 +52,13 @@ while full_sample:
 
     sample = np.random.choice(len(full_sample))
     sample = list(full_sample)[sample]
-    db_size, betat = sample
+    db_size, betat, retrain_permutations = sample
 
     query = Result.select().where(
         Result.distribution==distribution, Result.db_size==db_size,
         Result.betat==betat, Result.nhlayers==nhlayers,
-        Result.hl_nnodes==hl_nnodes)
+        Result.hl_nnodes==hl_nnodes,
+        Result.retrain_permutations==retrain_permutations)
     if query.count() >= 200:
 
         pv_avg = np.mean([res.pvalue for res in query])
@@ -63,6 +66,7 @@ while full_sample:
             "distribution:", distribution, "\n",
             "betat:", betat, "\n",
             "db_size:", db_size, "\n",
+            "retrain_permutations:", retrain_permutations, "\n",
             "nhlayers:", nhlayers, "\n",
             "hl_nnodes:", hl_nnodes,
         )
@@ -84,6 +88,7 @@ while full_sample:
     y_train = y_train,
     x_train = x_train[:, -feature_to_test],
     x_to_permutate = x_train[:, feature_to_test],
+    retrain_permutations = retrain_permutations,
     )
 
     print("Pvalue:", nn_obj.pvalue)
@@ -92,7 +97,8 @@ while full_sample:
         distribution=distribution, db_size=db_size,
         betat=betat, nhlayers=nhlayers,
         hl_nnodes=hl_nnodes,
-        pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time
+        pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time,
+        retrain_permutations=retrain_permutations
     )
 
 cls = ["-", ":", "-.", "-", "--", "-."]
@@ -109,7 +115,9 @@ for db_size in np.sort(list(db_size_sample))[:1]:
 
         idx1 = df['betat'] == betat
         idx2 = df['db_size'] == db_size
+        idx3 = df['retrain_permutations'] == False
         idxs = np.logical_and(idx1, idx2)
+        idxs = np.logical_and(idxs, idx3)
         pvals = np.sort(df[idxs]['pvalue'])
         ax.plot(pvals, np.linspace(0, 1, len(pvals)), label=label,
             linestyle=cls[i], lw=clw[i])
