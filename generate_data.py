@@ -24,10 +24,26 @@ import numpy as np
 import scipy.stats as stats
 
 def generate_data(n_gen, betat, distribution):
-    if distribution == 0:
-        x_dim = 5
-    elif distribution == 1:
-        x_dim = 50
+    if distribution <= 1:
+        return generate_data_01(n_gen, betat, distribution)
+    elif distribution == 2:
+        return generate_data_2(n_gen, betat)
+
+def generate_data_2(n_gen, betat):
+    beta = [3, np.nan]
+    beta[1] = betat
+
+    cov_matrix = [[1, 0.9], [0.9, 1]]
+    x_gen = stats.multivariate_normal.rvs(cov=cov_matrix, size=n_gen)
+
+    mu_gen = np.dot(x_gen, beta)
+    y_gen = stats.norm.rvs(scale=0.5, size=n_gen)
+    y_gen = mu_gen + y_gen
+
+    return x_gen, y_gen
+
+def generate_data_01(n_gen, betat, distribution):
+    x_dim = 5
 
     beta = stats.norm.rvs(size=x_dim, scale=0.4, random_state=(x_dim-5))
     beta0 = -.3
@@ -51,5 +67,10 @@ def generate_data(n_gen, betat, distribution):
 
     y_gen = stats.skewnorm.rvs(loc=beta0, scale=sigma, size=n_gen, a=4)
     y_gen = mu_gen + y_gen
+
+    y_gen = mu_gen + y_gen
+
+    if distribution == 0:
+        x_gen = x_gen[:, [2, 3]]
 
     return x_gen, y_gen

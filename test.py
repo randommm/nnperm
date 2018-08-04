@@ -38,13 +38,13 @@ import os
 from generate_data import generate_data
 from db_structure import Result
 
-db_size_sample = {1_000, 10_000}
-betat_sample = {0, 0.01, 0.05, 0.1, 0.3, 0.6}
-retrain_permutations_sample = {True, False}
+db_size_sample = [1_000, 10_000]
+betat_sample = [0, 0.01, 0.05, 0.1, 0.3, 0.6]
+distribution_sample = range(3)
+retrain_permutations_sample = [True, False]
 full_sample = set(itertools.product(db_size_sample, betat_sample,
-    retrain_permutations_sample))
+    retrain_permutations_sample, distribution_sample))
 
-distribution = 0
 nhlayers = 10
 hl_nnodes = 100
 
@@ -52,7 +52,7 @@ while full_sample:
 
     sample = np.random.choice(len(full_sample))
     sample = list(full_sample)[sample]
-    db_size, betat, retrain_permutations = sample
+    db_size, betat, retrain_permutations, distribution = sample
 
     query = Result.select().where(
         Result.distribution==distribution, Result.db_size==db_size,
@@ -78,7 +78,10 @@ while full_sample:
     n_train = db_size
     x_train, y_train = generate_data(n_train, betat, distribution)
 
-    feature_to_test = 3
+    if distribution == 1:
+        feature_to_test = 3
+    elif distribution == 0 or distribution == 2:
+        feature_to_test = 1
 
     nn_obj = NNPTest(
     verbose=2,
@@ -86,7 +89,7 @@ while full_sample:
     hl_nnodes=hl_nnodes,
     nhlayers=nhlayers,
     y_train = y_train,
-    x_train = x_train[:, -feature_to_test],
+    x_train = np.delete(x_train, feature_to_test, 1),
     x_to_permutate = x_train[:, feature_to_test],
     retrain_permutations = retrain_permutations,
     )
@@ -101,21 +104,24 @@ while full_sample:
         retrain_permutations=retrain_permutations
     )
 
-cls = ["-", ":", "-.", "-", "--", "-."]
-clw = [1.0, 2.0, 2.0, 2.0, 2.5, 1.0]
+cls = ["-", ":", "-.", "-", "--", "-.",
+       "-", ":", "-.", "-", "--", "-.",]
+clw = [1.0, 2.0, 2.0, 2.0, 2.5, 1.0,
+       2.0, 1.0, 1.0, 1.0, 1.0, 2.0]
 ax = plt.figure(figsize=[8.4, 5.8]).add_subplot(111)
 df = pd.DataFrame(list(Result.select().dicts()))
 ax.plot(np.linspace(0, 1, 10000), np.linspace(0, 1, 10000))
 i=0
-for db_size in np.sort(list(db_size_sample))[:1]:
-    for betat in np.sort(list(betat_sample)):
+distribution = 2
+for db_size in np.sort(db_size_sample):
+    for betat in np.sort(betat_sample):
         label = "betat = " + str(betat)
         label += " and "
         label += str(db_size) + " instances"
 
         idx1 = df['betat'] == betat
         idx2 = df['db_size'] == db_size
-        idx3 = df['retrain_permutations'] == False
+        idx3 = df['retrain_permutations'] == True
         idxs = np.logical_and(idx1, idx2)
         idxs = np.logical_and(idxs, idx3)
         pvals = np.sort(df[idxs]['pvalue'])
