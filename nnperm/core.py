@@ -554,10 +554,10 @@ class NNPTest():
             raise ValueError("retrain_permutations must be true when" +
                 " method=='remove'")
         for i in range(nperm):
-            if i >= 2 and (method == "shuffle_once" or "remove"):
+            if i >= 2 and (method == "shuffle_once" or method == "remove"):
                 break
 
-            if i == 0 or method == "shuffle_once" or "permutation":
+            if i == 0 or method == "shuffle_once" or method == "permutation":
                 x_train_stacked = np.column_stack([x_train,
                     x_to_permutate_train])
                 x_test_stacked = np.column_stack([x_test,
