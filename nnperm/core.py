@@ -23,8 +23,11 @@ import torch.optim as optim
 import numpy as np
 import time
 import itertools
+from scipy import stats
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import ShuffleSplit
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
 from copy import deepcopy
 
 def _np_to_tensor(arr):
@@ -35,8 +38,8 @@ def _np_to_tensor(arr):
 class NNPredict(BaseEstimator):
     """
     Estimate univariate density using Bayesian Fourier Series.
-    This method only works with data the lives in
-    [0, 1], however, the class implements methods to automatically
+    This estimator only works with data the lives in
+    [0, 1], however, the class implements estimators to automatically
     transform user inputted data to [0, 1]. See parameter `transform`
     below.
 
@@ -47,7 +50,7 @@ class NNPredict(BaseEstimator):
         expansion.
 
     nn_weight_decay : object
-        Mulplier for penalizaing the size of neural network weights. This penalization occurs for training only (does not affect score method nor validation of early stopping).
+        Mulplier for penalizaing the size of neural network weights. This penalization occurs for training only (does not affect score estimator nor validation of early stopping).
 
     nhlayers : integer
         Number of hidden layers for the neural network. If set to 0, then it degenerates to linear regression.
@@ -77,7 +80,7 @@ n_train = x_train.shape[0] - n_test
         See batch_inital.
 
     batch_test_size : integer
-        Size of the batch for validation and score methods.
+        Size of the batch for validation and score estimators.
         Does not affect training efficiency, usefull when there's
         little GPU memory.
     gpu : bool
@@ -313,8 +316,8 @@ n_train = x_train.shape[0] - n_test
                     target_next = target[i:i+batch_size]
 
                     if self.gpu:
-                        inputv_next = inputv_next.cuda(async=True)
-                        target_next = target_next.cuda(async=True)
+                        inputv_next = inputv_next.cuda(non_blocking=True)
+                        target_next = target_next.cuda(non_blocking=True)
 
                 if i != 0:
                     batch_actual_size = inputv_this.shape[0]
@@ -372,8 +375,8 @@ n_train = x_train.shape[0] - n_test
                     target_next = target[i:i+batch_size]
 
                     if self.gpu:
-                        inputv_next = inputv_next.cuda(async=True)
-                        target_next = target_next.cuda(async=True)
+                        inputv_next = inputv_next.cuda(non_blocking=True)
+                        target_next = target_next.cuda(non_blocking=True)
 
                 if i != 0:
                     output = self.neural_net(inputv_this)
@@ -394,7 +397,6 @@ n_train = x_train.shape[0] - n_test
 
             if self.gpu:
                 inputv = inputv.cuda()
-                target = target.cuda()
 
             output_pred = self.neural_net(inputv)
 
@@ -512,11 +514,12 @@ n_train = x_train.shape[0] - n_test
                     print("Warning: GPU was used to train this model, "
                           "but is not currently available and will "
                           "be disabled "
-                          "(renable with method move_to_gpu)")
+                          "(renable with estimator move_to_gpu)")
 
 class NNPTest():
     def __init__(self, x_train, y_train, x_to_permutate, nperm=100,
                  prop_test = 0.1, retrain_permutations=True,
+                 estimator = "ann", method = "permutation",
                  *args, **kwargs):
         if len(y_train.shape) == 1:
             y_train = y_train[:, None]
@@ -544,16 +547,46 @@ class NNPTest():
         y_train = y_train[ind_train]
 
         scores = []
+
+        if method not in ["shuffle_once", "remove", "permutation"]:
+            raise ValueError("invalid method argument")
+        if method == "remove" and not retrain_permutations:
+            raise ValueError("retrain_permutations must be true when" +
+                " method=='remove'")
         for i in range(nperm):
-            x_train_stacked = np.column_stack([x_train, x_to_permutate_train])
-            x_test_stacked = np.column_stack([x_test, x_to_permutate_test])
+            if i >= 2 and (method == "shuffle_once" or "remove"):
+                break
+
+            if i == 0 or method == "shuffle_once" or "permutation":
+                x_train_stacked = np.column_stack([x_train,
+                    x_to_permutate_train])
+                x_test_stacked = np.column_stack([x_test,
+                    x_to_permutate_test])
+            else:
+                x_train_stacked = x_train
+                x_test_stacked = x_test
 
             if retrain_permutations or i == 0:
-                nn_predict_obj = NNPredict(*args, **kwargs)
+                if estimator == "ann":
+                    nn_predict_obj = NNPredict(*args, **kwargs)
+                elif estimator == "rf":
+                    nn_predict_obj = RandomForestRegressor(*args,
+                        **kwargs)
+                elif estimator == "linear":
+                    nn_predict_obj = LinearRegression(*args, **kwargs)
+                else:
+                    raise ValueError("invalid estimator argument")
                 nn_predict_obj.fit(x_train_stacked, y_train)
 
-            score = nn_predict_obj.score(x_test_stacked, y_test)
-            scores.append(score)
+            if method == "permutation":
+                score = nn_predict_obj.score(x_test_stacked, y_test)
+                scores.append(score)
+            else:
+                score = nn_predict_obj.predict(x_test_stacked)
+                if len(score.shape) == 1:
+                    score = score[:, None]
+                score = (score - y_test)**2
+                scores.append(score)
 
             x_to_permutate_test = x_to_permutate_test[np.random.permutation(range(ntest))]
             x_to_permutate_train = x_to_permutate_train[np.random.permutation(range(ntrain))]
@@ -562,14 +595,34 @@ class NNPTest():
                 print(">>>> Trained", i+1,
                     "neural networks out of", nperm)
 
+        if method == "permutation":
+            self.score_unpermuted = scores[0]
+            self.score_permuted = np.array(scores[1:])
 
-        self.score_unpermuted = scores[0]
-        self.score_permuted = np.array(scores[1:])
+            n1 = (self.score_unpermuted <=
+                self.score_permuted).sum() / nperm
+            n2 = (self.score_unpermuted <
+                self.score_permuted).sum() / nperm
 
-        n1 = (self.score_unpermuted <= self.score_permuted).sum() / nperm
-        n2 = (self.score_unpermuted < self.score_permuted).sum() / nperm
+            self.pvalue = (n1 + n2) / 2
+        else:
+            self.score_unpermuted = scores[0]
+            self.score_permuted = scores[1]
 
-        self.pvalue = (n1 + n2) / 2
+            #H0: population1.mean() >= population2.mean()
+            def one_tailed_test(sample1, sample2):
+                pvalue = stats.ttest_ind(sample1, sample2,
+                    equal_var=False).pvalue
+                if sample1.mean() <= sample2.mean():
+                    pvalue /= 2
+                else:
+                    pvalue = 1 - pvalue/2
+                return pvalue
+
+            self.pvalue = one_tailed_test(self.score_unpermuted,
+                self.score_permuted)
+            self.pvalue
+
 
         self.elapsed_time = time.process_time() - start_time
         print("Total testing time:", self.elapsed_time, flush=True)
