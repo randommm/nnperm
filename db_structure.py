@@ -8,6 +8,8 @@ class Result(Model):
     betat = DoubleField()
     nhlayers = IntegerField()
     hl_nnodes = IntegerField()
+    estimator = TextField()
+    method = TextField()
     retrain_permutations = BooleanField()
     pvalue = DoubleField()
     elapsed_time = DoubleField()

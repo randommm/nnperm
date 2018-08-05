@@ -40,24 +40,31 @@ from db_structure import Result
 
 db_size_sample = [1_000, 10_000]
 betat_sample = [0, 0.01, 0.05, 0.1, 0.3, 0.6]
+method_sample = ["permutation", "remove", "shuffle_once"]
 distribution_sample = range(3)
 retrain_permutations_sample = [True, False]
 full_sample = set(itertools.product(db_size_sample, betat_sample,
-    retrain_permutations_sample, distribution_sample))
+    retrain_permutations_sample, distribution_sample, method_sample))
 
 nhlayers = 10
 hl_nnodes = 100
+estimator = "rf"
 
 while full_sample:
-
     sample = np.random.choice(len(full_sample))
     sample = list(full_sample)[sample]
-    db_size, betat, retrain_permutations, distribution = sample
+    (db_size, betat, retrain_permutations, distribution,
+        method) = sample
+
+    if not retrain_permutations and method == "remove":
+        full_sample.discard(sample)
+        continue
 
     query = Result.select().where(
         Result.distribution==distribution, Result.db_size==db_size,
         Result.betat==betat, Result.nhlayers==nhlayers,
-        Result.hl_nnodes==hl_nnodes,
+        Result.estimator==estimator, Result.method==method,
+        Result.hl_nnodes==hl_nnodes, Result.estimator==estimator,
         Result.retrain_permutations==retrain_permutations)
     if query.count() >= 200:
 
@@ -83,23 +90,36 @@ while full_sample:
     elif distribution == 0 or distribution == 2:
         feature_to_test = 1
 
-    nn_obj = NNPTest(
-    verbose=2,
-    es=True,
-    hl_nnodes=hl_nnodes,
-    nhlayers=nhlayers,
-    y_train = y_train,
-    x_train = np.delete(x_train, feature_to_test, 1),
-    x_to_permutate = x_train[:, feature_to_test],
-    retrain_permutations = retrain_permutations,
-    )
+    if estimator == "ann":
+        nn_obj = NNPTest(
+        verbose=2,
+        es=True,
+        hl_nnodes=hl_nnodes,
+        nhlayers=nhlayers,
+        y_train = y_train,
+        x_train = np.delete(x_train, feature_to_test, 1),
+        x_to_permutate = x_train[:, feature_to_test],
+        retrain_permutations = retrain_permutations,
+        estimator = estimator,
+        method = method,
+        )
+    else:
+        nn_obj = NNPTest(
+        y_train = y_train,
+        x_train = np.delete(x_train, feature_to_test, 1),
+        x_to_permutate = x_train[:, feature_to_test],
+        retrain_permutations = retrain_permutations,
+        estimator = estimator,
+        method = method,
+        n_estimators = 300,
+        )
 
     print("Pvalue:", nn_obj.pvalue)
 
     Result.create(
         distribution=distribution, db_size=db_size,
         betat=betat, nhlayers=nhlayers,
-        hl_nnodes=hl_nnodes,
+        hl_nnodes=hl_nnodes, estimator = estimator, method = method,
         pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time,
         retrain_permutations=retrain_permutations
     )
