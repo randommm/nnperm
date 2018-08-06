@@ -14,27 +14,9 @@
 #along with this program.    If not, see <http://www.gnu.org/licenses/>.
 #----------------------------------------------------------------------
 
-import torch
-import torch.nn.functional as F
-
 import numpy as np
-import pandas as pd
-import scipy.stats as stats
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-
-from nnperm import NNPredict, NNPTest
-from sklearn.model_selection import GridSearchCV, ShuffleSplit
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-
-import time
-import hashlib
+from nnperm import NNPTest
 import itertools
-import pickle
-from sklearn.externals import joblib
-import os
-
 from generate_data import generate_data
 from db_structure import Result
 
@@ -66,7 +48,7 @@ while full_sample:
         Result.estimator==estimator, Result.method==method,
         Result.hl_nnodes==hl_nnodes, Result.estimator==estimator,
         Result.retrain_permutations==retrain_permutations)
-    if query.count() >= 200:
+    if query.count() >= 2:
 
         pv_avg = np.mean([res.pvalue for res in query])
         print(
@@ -92,7 +74,7 @@ while full_sample:
 
     if estimator == "ann":
         nn_obj = NNPTest(
-        verbose=2,
+        verbose=1,
         es=True,
         hl_nnodes=hl_nnodes,
         nhlayers=nhlayers,
@@ -123,34 +105,3 @@ while full_sample:
         pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time,
         retrain_permutations=retrain_permutations
     )
-
-cls = ["-", ":", "-.", "-", "--", "-.",
-       "-", ":", "-.", "-", "--", "-.",]
-clw = [1.0, 2.0, 2.0, 2.0, 2.5, 1.0,
-       2.0, 1.0, 1.0, 1.0, 1.0, 2.0]
-ax = plt.figure(figsize=[8.4, 5.8]).add_subplot(111)
-df = pd.DataFrame(list(Result.select().dicts()))
-ax.plot(np.linspace(0, 1, 10000), np.linspace(0, 1, 10000))
-i=0
-distribution = 2
-for db_size in np.sort(db_size_sample):
-    for betat in np.sort(betat_sample):
-        label = "betat = " + str(betat)
-        label += " and "
-        label += str(db_size) + " instances"
-
-        idx1 = df['betat'] == betat
-        idx2 = df['db_size'] == db_size
-        idx3 = df['retrain_permutations'] == True
-        idxs = np.logical_and(idx1, idx2)
-        idxs = np.logical_and(idxs, idx3)
-        pvals = np.sort(df[idxs]['pvalue'])
-        ax.plot(pvals, np.linspace(0, 1, len(pvals)), label=label,
-            linestyle=cls[i], lw=clw[i])
-        i += 1
-
-legend = ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-           ncol=2, mode="expand", borderaxespad=0.)
-
-with PdfPages("plots/cdf.pdf") as ps:
-    ps.savefig(ax.get_figure(), bbox_inches='tight')
