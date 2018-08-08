@@ -52,10 +52,15 @@ def plotcdfs(distribution, retrain_permutations, db_size, estimator):
             idx3 = df['retrain_permutations'] == retrain_permutations
             idx4 = df['method'] == method
             idx5 = df['estimator'] == estimator
+            idx6 = df['distribution'] == distribution
             idxs = np.logical_and(idx1, idx2)
             idxs = np.logical_and(idxs, idx3)
             idxs = np.logical_and(idxs, idx4)
             idxs = np.logical_and(idxs, idx5)
+            idxs = np.logical_and(idxs, idx6)
+            pvals = np.sort(df[idxs]['pvalue'])
+            for j in range(len(pvals)):
+                pvals[j] = 2 * pvals[j] if pvals[j] <= 0.5 else 2 * (1 - pvals[j])
             pvals = np.sort(df[idxs]['pvalue'])
             ax.plot(pvals, np.linspace(0, 1, len(pvals)), label=label,
                 linestyle=clws[i][1], lw=clws[i][0])
@@ -72,6 +77,7 @@ def plotcdfs(distribution, retrain_permutations, db_size, estimator):
     filename += ".pdf"
     with PdfPages(filename) as ps:
         ps.savefig(ax.get_figure(), bbox_inches='tight')
+    plt.close(ax.get_figure())
 
 for distribution in range(3):
     for retrain_permutations in [True, False]:

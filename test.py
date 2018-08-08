@@ -48,7 +48,7 @@ while full_sample:
         Result.estimator==estimator, Result.method==method,
         Result.hl_nnodes==hl_nnodes, Result.estimator==estimator,
         Result.retrain_permutations==retrain_permutations)
-    if query.count() >= 2:
+    if query.count() >= 200:
 
         pv_avg = np.mean([res.pvalue for res in query])
         print(
