@@ -21,7 +21,7 @@ from generate_data import generate_data
 from db_structure import Result
 
 db_size_sample = [1_000, 10_000]
-betat_sample = [0, 0.01, 0.05, 0.1, 0.3, 0.6]
+betat_sample = [0, 0.01, 0.1, 0.6]
 method_sample = ["permutation", "remove", "shuffle_once"]
 distribution_sample = range(3)
 retrain_permutations_sample = [True, False]
@@ -30,7 +30,7 @@ full_sample = set(itertools.product(db_size_sample, betat_sample,
 
 nhlayers = 10
 hl_nnodes = 100
-estimator = "rf"
+estimator = "ann"
 
 while full_sample:
     sample = np.random.choice(len(full_sample))
@@ -47,7 +47,7 @@ while full_sample:
         Result.betat==betat, Result.nhlayers==nhlayers,
         Result.estimator==estimator, Result.method==method,
         Result.hl_nnodes==hl_nnodes, Result.estimator==estimator,
-        Result.retrain_permutations==retrain_permutations)
+        Result.retrain_permutations==retrain_permutations,)
     if query.count() >= 200:
 
         pv_avg = np.mean([res.pvalue for res in query])
@@ -105,3 +105,5 @@ while full_sample:
         pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time,
         retrain_permutations=retrain_permutations
     )
+
+    print("Result stored in the database")

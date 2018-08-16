@@ -10,7 +10,7 @@ class Result(Model):
     hl_nnodes = IntegerField()
     estimator = TextField()
     method = TextField()
-    retrain_permutations = BooleanField()
+    retrain_permutations = IntegerField()
     pvalue = DoubleField()
     elapsed_time = DoubleField()
 

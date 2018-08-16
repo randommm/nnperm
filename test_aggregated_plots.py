@@ -20,10 +20,7 @@ import itertools
 from plotnine import *
 from db_structure import Result
 
-df = pd.DataFrame(list(Result.select().where(
-    (Result.betat == 0.01) | (Result.betat == 0.1) |
-    (Result.betat == 0.6)
-).dicts()))
+df = pd.DataFrame(list(Result.select().dicts()))
 
 def plotcdfs(df, distribution, power=0.05):
     idx1 = df['distribution'] == distribution
@@ -47,8 +44,12 @@ def plotcdfs(df, distribution, power=0.05):
         pvalue_max = np.max(dfs['pvalue'])
 
         #new column
-        dfs['retrain_permutations'] = np.array(dfs['retrain_permutations'], dtype="str")
-        to_append = map('\n'.join, zip(dfs["method"], dfs["retrain_permutations"]))
+        retrain_permutations = np.array(dfs['retrain_permutations'])
+        retrain_permutations = np.array(retrain_permutations,
+            dtype=bool)
+        retrain_permutations = np.array(retrain_permutations,
+            dtype="str")
+        to_append = map('\n'.join, zip(dfs["method"], retrain_permutations))
         dfs['retrain_and_method'] = list(to_append)
 
 

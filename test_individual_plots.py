@@ -59,10 +59,13 @@ def plotcdfs(distribution, retrain_permutations, db_size, estimator):
             idxs = np.logical_and(idxs, idx5)
             idxs = np.logical_and(idxs, idx6)
             pvals = np.sort(df[idxs]['pvalue'])
-            for j in range(len(pvals)):
-                pvals[j] = 2 * pvals[j] if pvals[j] <= 0.5 else 2 * (1 - pvals[j])
-            pvals = np.sort(df[idxs]['pvalue'])
-            ax.plot(pvals, np.linspace(0, 1, len(pvals)), label=label,
+
+            # Uncomment to plot two-tailed tests
+            #for j in range(len(pvals)):
+            #    pvals[j] = 2 * pvals[j] if pvals[j] <= 0.5 else 2 * (1 - pvals[j])
+            #pvals = np.sort(pvals)
+
+            ax.step(pvals, np.linspace(0, 1, len(pvals), False), label=label,
                 linestyle=clws[i][1], lw=clws[i][0])
             i += 1
 
