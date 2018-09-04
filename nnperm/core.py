@@ -591,7 +591,7 @@ class NNPTest():
             x_to_permutate_test = x_to_permutate_test[np.random.permutation(range(ntest))]
             x_to_permutate_train = x_to_permutate_train[np.random.permutation(range(ntrain))]
 
-            if retrain_permutations:
+            if retrain_permutations and method == "permutation":
                 print(">>>> Trained", i+1,
                     "neural networks out of", nperm)
 
