@@ -45,8 +45,7 @@ def plotcdfs(distribution, method, retrain_permutations, db_size,
 
     idx1 = df['betat'] == 0.0
     idx2 = df['db_size'] == db_size
-    idx3 = (df['retrain_permutations']
-        == retrain_permutations)
+    idx3 = df['retrain_permutations'] == retrain_permutations
     idx4 = df['method'] == method
     idx5 = df['estimator'] == estimator
     idx6 = df['distribution'] == distribution
@@ -59,14 +58,16 @@ def plotcdfs(distribution, method, retrain_permutations, db_size,
 
     test_unif = stats.kstest(pvals, 'uniform')
     test_unif = test_unif.pvalue
+    test_unif = np.round(test_unif, 2)
     vals = [
         method, retrain_permutations, db_size,
-        estimator, distribution, np.round(test_unif, 2)
+        estimator, distribution, test_unif
     ]
-    dfpvalues.loc["new"] = vals
-    dfpvalues.index = range(dfpvalues.shape[0])
+    if test_unif > 0:
+        dfpvalues.loc["new"] = vals
+        dfpvalues.index = range(dfpvalues.shape[0])
 
-    if db_size == 1000 or estimator == "rf":
+    if db_size == 1000:
         return
 
     ecdf(pvals, ax, label=label, linestyle=clws[i[0]][1],
@@ -80,22 +81,29 @@ dfpvalues = [
 dfpvalues = pd.DataFrame(columns=dfpvalues)
 
 method_sample = ["permutation", "remove", "shuffle_once"]
-fig = plt.figure(figsize=[8.4, 5.8])
+fig = plt.figure(figsize=[12.4, 10.9])
+axarr = fig.subplots(2, 3)
 
 for distribution in range(3):
-    ax = fig.add_subplot(1, 3, distribution + 1)
-    ax.plot(np.linspace(0, 1, 10000), np.linspace(0, 1, 10000))
-    i = [0]
-    for method in np.sort(method_sample):
-        for retrain_permutations in [True, False]:
-            for db_size in [1_000, 10_000]:
-                for estimator in ["ann", "rf"]:
+    for estimator in ["ann", "rf"]:
+        ax = axarr[int(estimator == "rf"), distribution]
+        ax.plot(np.linspace(0, 1, 10000), np.linspace(0, 1, 10000))
+        i = [0]
+        for method in np.sort(method_sample):
+            for retrain_permutations in [True, False]:
+                for db_size in [1_000, 10_000]:
                     if retrain_permutations or not method == "remove":
                         plotcdfs(distribution, method,
                             retrain_permutations, db_size,
                             estimator, dfpvalues, i, ax)
-    legend = ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-               ncol=1, mode="expand", borderaxespad=0.)
+        ax.legend(loc="top", frameon=False,
+                  ncol=1, borderaxespad=0.2)
+        ax.set_ylim(0, 1.4)
+        ax.set_title("Distribution " + str(distribution)
+            + " (" + str(estimator).upper() + ")")
+#plt.setp([a.get_xticklabels() for a in axarr[0, :]], visible=False)
+plt.setp([a.get_yticklabels() for a in axarr[:, 1]], visible=False)
+plt.setp([a.get_yticklabels() for a in axarr[:, 2]], visible=False)
 
 filename = "plots/"
 filename += "null.pdf"

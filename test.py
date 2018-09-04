@@ -18,17 +18,18 @@ import numpy as np
 from nnperm import NNPTest
 import itertools
 from generate_data import generate_data
-from db_structure import Result
+from db_structure import Result, db
 
 db_size_sample = [1_000, 10_000]
 betat_sample = [0, 0.01, 0.1, 0.6]
 method_sample = ["permutation", "remove", "shuffle_once"]
-distribution_sample = range(3)
+complexity_sample = [1, 2]
+distribution_sample = range(4)
 retrain_permutations_sample = [True, False]
 full_sample = set(itertools.product(db_size_sample, betat_sample,
-    retrain_permutations_sample, distribution_sample, method_sample))
+    retrain_permutations_sample, distribution_sample, method_sample,
+    complexity_sample))
 
-nhlayers = 10
 hl_nnodes = 100
 estimator = "ann"
 
@@ -36,7 +37,7 @@ while full_sample:
     sample = np.random.choice(len(full_sample))
     sample = list(full_sample)[sample]
     (db_size, betat, retrain_permutations, distribution,
-        method) = sample
+        method, complexity) = sample
 
     if not retrain_permutations and method == "remove":
         full_sample.discard(sample)
@@ -44,32 +45,34 @@ while full_sample:
 
     query = Result.select().where(
         Result.distribution==distribution, Result.db_size==db_size,
-        Result.betat==betat, Result.nhlayers==nhlayers,
+        Result.betat==betat, Result.complexity==complexity,
         Result.estimator==estimator, Result.method==method,
-        Result.hl_nnodes==hl_nnodes, Result.estimator==estimator,
         Result.retrain_permutations==retrain_permutations,)
     if query.count() >= 200:
 
         pv_avg = np.mean([res.pvalue for res in query])
         print(
+            "Final results for: \n",
             "distribution:", distribution, "\n",
             "betat:", betat, "\n",
             "db_size:", db_size, "\n",
             "retrain_permutations:", retrain_permutations, "\n",
-            "nhlayers:", nhlayers, "\n",
-            "hl_nnodes:", hl_nnodes,
+            "method:", method, "\n",
+            "complexity:", complexity, "\n",
         )
         print("P-values average:", pv_avg, flush=True)
 
         full_sample.discard(sample)
         continue
 
+    db.close()
+
     n_train = db_size
     x_train, y_train = generate_data(n_train, betat, distribution)
 
     if distribution == 1:
         feature_to_test = 3
-    elif distribution == 0 or distribution == 2:
+    elif distribution == 0 or distribution == 2 or distribution == 3:
         feature_to_test = 1
 
     if estimator == "ann":
@@ -77,7 +80,7 @@ while full_sample:
         verbose=1,
         es=True,
         hl_nnodes=hl_nnodes,
-        nhlayers=nhlayers,
+        nhlayers=complexity * 10,
         y_train = y_train,
         x_train = np.delete(x_train, feature_to_test, 1),
         x_to_permutate = x_train[:, feature_to_test],
@@ -85,25 +88,25 @@ while full_sample:
         estimator = estimator,
         method = method,
         )
-    else:
+    elif estimator == "rf":
         nn_obj = NNPTest(
         y_train = y_train,
         x_train = np.delete(x_train, feature_to_test, 1),
         x_to_permutate = x_train[:, feature_to_test],
         retrain_permutations = retrain_permutations,
-        estimator = estimator,
+        estimator = "rf",
         method = method,
-        n_estimators = 300,
+        n_estimators = complexity * 300,
         )
 
     print("Pvalue:", nn_obj.pvalue)
 
     Result.create(
         distribution=distribution, db_size=db_size,
-        betat=betat, nhlayers=nhlayers,
-        hl_nnodes=hl_nnodes, estimator = estimator, method = method,
+        betat=betat, complexity=complexity,
+        estimator = estimator, method = method,
         pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time,
         retrain_permutations=retrain_permutations
     )
 
-    print("Result stored in the database")
+    print("Result stored in the database", flush=True)

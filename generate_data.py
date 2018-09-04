@@ -28,6 +28,8 @@ def generate_data(n_gen, betat, distribution):
         return generate_data_01(n_gen, betat, distribution)
     elif distribution == 2:
         return generate_data_2(n_gen, betat)
+    elif distribution == 3:
+        return generate_data_3(n_gen, betat)
 
 def generate_data_2(n_gen, betat):
     beta = [3, np.nan]
@@ -38,6 +40,19 @@ def generate_data_2(n_gen, betat):
 
     mu_gen = np.dot(x_gen, beta)
     y_gen = stats.norm.rvs(scale=0.5, size=n_gen)
+    y_gen = mu_gen + y_gen
+
+    return x_gen, y_gen
+
+def generate_data_3(n_gen, betat):
+    beta = [3, np.nan]
+    beta[1] = betat
+
+    x_gen = stats.beta.rvs(1, 1, size=n_gen * 2).reshape((n_gen, 2))
+    x_gen += stats.norm.rvs(-0.5, size=n_gen).reshape((n_gen, 1))
+
+    mu_gen = np.dot(x_gen, beta)
+    y_gen = stats.beta.rvs(2, 2)
     y_gen = mu_gen + y_gen
 
     return x_gen, y_gen
