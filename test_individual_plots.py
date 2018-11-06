@@ -72,7 +72,7 @@ def plotcdfs(distribution, retrain_permutations, db_size, estimator):
     legend = ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
                ncol=2, mode="expand", borderaxespad=0.)
 
-    filename = "plots/"
+    filename = "plots/individual/"
     filename += "estimator_" + str(estimator)
     filename += "_and_distribution_" + str(distribution)
     filename += "_and_retrain_permutations_" + str(retrain_permutations)
@@ -82,9 +82,9 @@ def plotcdfs(distribution, retrain_permutations, db_size, estimator):
         ps.savefig(ax.get_figure(), bbox_inches='tight')
     plt.close(ax.get_figure())
 
-for distribution in range(3):
+for distribution in range(4):
     for retrain_permutations in [True, False]:
         for db_size in [1_000, 10_000]:
-            for estimator in ["ann", "rf"]:
+            for estimator in ["ann", "rf", "linear"]:
                 plotcdfs(distribution, retrain_permutations, db_size,
                     estimator)

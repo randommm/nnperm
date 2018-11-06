@@ -97,7 +97,7 @@ def plotcdfs(df, distribution, power=0.05):
 
     return plot
 
-for distribution in range(3):
+for distribution in range(4):
     for retrain_permutations in [True, False]:
         filename = "plots/"
         filename += "aggregated"

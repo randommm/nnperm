@@ -28,11 +28,11 @@ def ecdf(x, ax, *args, **kwargs):
     yc = np.concatenate(([0], y))
     ax.step(xc, yc, *args, **kwargs)
 
-cls = ["-", ":", "-.", "--"]
+cls = [":", "-.", "--", '-']
 clw = [1.0, 2.0, 1.5, 3.0, 0.5, 4.0]
 clws = list(itertools.product(clw, cls))
 
-df = pd.DataFrame(list(Result.select().dicts()))
+df = pd.DataFrame(list(Result.select().where(Result.betat==0).dicts()))
 
 #for db_size in np.sort(db_size_sample):
 
@@ -81,12 +81,13 @@ dfpvalues = [
 dfpvalues = pd.DataFrame(columns=dfpvalues)
 
 method_sample = ["permutation", "remove", "shuffle_once"]
-fig = plt.figure(figsize=[12.4, 10.9])
-axarr = fig.subplots(2, 3)
+fig = plt.figure(figsize=[11.4, 16.9])
+axarr = fig.subplots(4, 3)
+fig.subplots_adjust(wspace=0.17, hspace=0.17)
 
-for distribution in range(3):
-    for estimator in ["ann", "rf"]:
-        ax = axarr[int(estimator == "rf"), distribution]
+for distribution in range(4):
+    for est_ind, estimator in enumerate(["ann", "rf", "linear"]):
+        ax = axarr[distribution, est_ind]
         ax.plot(np.linspace(0, 1, 10000), np.linspace(0, 1, 10000))
         i = [0]
         for method in np.sort(method_sample):
@@ -96,14 +97,16 @@ for distribution in range(3):
                         plotcdfs(distribution, method,
                             retrain_permutations, db_size,
                             estimator, dfpvalues, i, ax)
-        ax.legend(loc="top", frameon=False,
+        ax.legend(loc="auto", frameon=False,
                   ncol=1, borderaxespad=0.2)
-        ax.set_ylim(0, 1.4)
+        ax.set_ylim(0, 1.6)
+        #ax.set_xlim(-0.1, 1.1)
         ax.set_title("Distribution " + str(distribution)
             + " (" + str(estimator).upper() + ")")
-#plt.setp([a.get_xticklabels() for a in axarr[0, :]], visible=False)
-plt.setp([a.get_yticklabels() for a in axarr[:, 1]], visible=False)
-plt.setp([a.get_yticklabels() for a in axarr[:, 2]], visible=False)
+plt.setp([a.get_xticklabels() for a in axarr[1:3, :].reshape(-1)],
+    visible=False)
+plt.setp([a.get_yticklabels() for a in axarr[:, 1:2].reshape(-1)],
+    visible=False)
 
 filename = "plots/"
 filename += "null.pdf"
