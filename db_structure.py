@@ -1,6 +1,15 @@
 from peewee import *
+import os
 
-db = SqliteDatabase('results.sqlite3')
+pgdb = os.environ['pgdb']
+pguser = os.environ['pguser']
+pgpass = os.environ['pgpass']
+pghost = os.environ['pghost']
+pgport = os.environ['pgport']
+
+db = PostgresqlDatabase(pgdb, user=pguser, password=pgpass,
+host=pghost, port=pgport)
+#db = SqliteDatabase('results.sqlite3')
 
 class Result(Model):
     distribution = IntegerField()
