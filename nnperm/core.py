@@ -19,6 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils import data
 
 import numpy as np
 import time
@@ -52,9 +53,9 @@ class NNPredict(BaseEstimator):
     nn_weight_decay : object
         Mulplier for penalizaing the size of neural network weights. This penalization occurs for training only (does not affect score estimator nor validation of early stopping).
 
-    nhlayers : integer
+    num_layers : integer
         Number of hidden layers for the neural network. If set to 0, then it degenerates to linear regression.
-    hl_nnodes : integer
+    hidden_size : integer
         Multiplier for the size of the hidden layers of the neural network. If set to 1, then each of them will have ncomponents components. If set to 2, then 2 * ncomponents components, and so on.
 
     es : bool
@@ -90,8 +91,8 @@ n_train = x_train.shape[0] - n_test
     """
     def __init__(self,
                  nn_weight_decay=0,
-                 nhlayers=10,
-                 hl_nnodes=100,
+                 num_layers=10,
+                 hidden_size=100,
                  convolutional=False,
 
                  es = True,
@@ -154,8 +155,8 @@ n_train = x_train.shape[0] - n_test
         assert(self.batch_max_size >= 1)
         assert(self.batch_test_size >= 1)
 
-        assert(self.nhlayers >= 0)
-        assert(self.hl_nnodes > 0)
+        assert(self.num_layers >= 0)
+        assert(self.hidden_size > 0)
 
         inputv_train = np.array(x_train, dtype='f4')
         target_train = np.array(y_train, dtype='f4')
@@ -215,22 +216,13 @@ n_train = x_train.shape[0] - n_test
 
             try:
                 self.neural_net.train()
-                self._one_epoch("train", batch_size, batch_test_size,
-                                inputv_train, target_train, optimizer,
-                                criterion, volatile=False)
-
-                self.neural_net.eval()
-                avloss = self._one_epoch("train", batch_size,
-                              batch_test_size, inputv_train,
-                              target_train, optimizer, criterion,
-                              volatile=True)
-                self.loss_history_train.append(avloss)
+                self._one_epoch(True, batch_size, inputv_train,
+                                target_train, optimizer, criterion)
 
                 if self.es:
                     self.neural_net.eval()
-                    avloss = self._one_epoch("val", batch_size,
-                        batch_test_size, inputv_val, target_val,
-                        optimizer, criterion, volatile=True)
+                    avloss = self._one_epoch(False, batch_test_size,
+                        inputv_val, target_val, optimizer, criterion)
                     self.loss_history_validation.append(avloss)
                     if avloss <= self.best_loss_val:
                         self.best_loss_val = avloss
@@ -289,66 +281,47 @@ n_train = x_train.shape[0] - n_test
 
         return self
 
-    def _one_epoch(self, ftype, batch_train_size, batch_test_size,
-                   inputv, target, optimizer, criterion, volatile):
-        with torch.set_grad_enabled(not volatile):
-            if volatile:
-                batch_size = batch_test_size
-            else:
-                batch_size = batch_train_size
-
-            if ftype == "train":
-                batch_show_size = batch_train_size
-            else:
-                batch_show_size = batch_test_size
-
+    def _one_epoch(self, is_train, batch_size, inputv, target,
+        optimizer, criterion):
+        with torch.set_grad_enabled(is_train):
             inputv = torch.from_numpy(inputv)
             target = torch.from_numpy(target)
-            if self.gpu:
-                inputv = inputv.pin_memory()
-                target = target.pin_memory()
 
             loss_vals = []
             batch_sizes = []
-            for i in range(0, target.shape[0] + batch_size, batch_size):
-                if i < target.shape[0]:
-                    inputv_next = inputv[i:i+batch_size]
-                    target_next = target[i:i+batch_size]
 
-                    if self.gpu:
-                        inputv_next = inputv_next.cuda(non_blocking=True)
-                        target_next = target_next.cuda(non_blocking=True)
+            tdataset = data.TensorDataset(inputv, target)
+            data_loader = data.DataLoader(tdataset,
+                batch_size=batch_size, shuffle=True, drop_last=is_train,
+                pin_memory=self.gpu, num_workers=1)
 
-                if i != 0:
-                    batch_actual_size = inputv_this.shape[0]
-                    if batch_actual_size != batch_size and not volatile:
-                        continue
+            for inputv_this, target_this in data_loader:
+                if self.gpu:
+                    inputv_this = inputv_this.cuda(non_blocking=True)
+                    target_this = target_this.cuda(non_blocking=True)
 
-                    optimizer.zero_grad()
-                    output = self.neural_net(inputv_this)
+                batch_actual_size = inputv_this.shape[0]
+                optimizer.zero_grad()
+                output = self.neural_net(inputv_this)
+                loss = criterion(output, target_this)
 
-                    loss = criterion(output, target_this)
+                np_loss = loss.data.item()
+                if np.isnan(np_loss):
+                    raise RuntimeError("Loss is NaN")
 
-                    np_loss = loss.data.cpu().numpy()
-                    if np.isnan(np_loss):
-                        raise RuntimeError("Loss is NaN")
+                loss_vals.append(np_loss)
+                batch_sizes.append(batch_actual_size)
 
-                    loss_vals.append(np_loss)
-                    batch_sizes.append(batch_actual_size)
-
-                    if not volatile:
-                        loss.backward()
-                        optimizer.step()
-
-                inputv_this = inputv_next
-                target_this = target_next
+                if is_train:
+                    loss.backward()
+                    optimizer.step()
 
             avgloss = np.average(loss_vals, weights=batch_sizes)
-            if self.verbose >= 2 and volatile:
+            if self.verbose >= 2:
                 print("Finished epoch", self.epoch_count,
-                      "with batch size", batch_show_size,
-                      "and", ftype + " loss",
-                      avgloss, flush=True)
+                      "with batch size", batch_size, "and",
+                      ("train" if is_train else "validation"),
+                      "loss", avgloss, flush=True)
 
             return avgloss
 
@@ -361,32 +334,28 @@ n_train = x_train.shape[0] - n_test
             inputv = _np_to_tensor(np.ascontiguousarray(x_test))
             target = _np_to_tensor(y_test)
 
-            if self.gpu:
-                inputv = inputv.pin_memory()
-                target = target.pin_memory()
-
             batch_size = min(self.batch_test_size, x_test.shape[0])
 
             loss_vals = []
             batch_sizes = []
-            for i in range(0, target.shape[0] + batch_size, batch_size):
-                if i < target.shape[0]:
-                    inputv_next = inputv[i:i+batch_size]
-                    target_next = target[i:i+batch_size]
 
-                    if self.gpu:
-                        inputv_next = inputv_next.cuda(non_blocking=True)
-                        target_next = target_next.cuda(non_blocking=True)
+            tdataset = data.TensorDataset(inputv, target)
+            data_loader = data.DataLoader(tdataset,
+                batch_size=batch_size, shuffle=True, drop_last=False,
+                pin_memory=self.gpu, num_workers=1)
 
-                if i != 0:
-                    output = self.neural_net(inputv_this)
-                    loss = F.mse_loss(output, target_this)
+            for inputv_this, target_this in data_loader:
+                if self.gpu:
+                    inputv_this = inputv_this.cuda(non_blocking=True)
+                    target_this = target_this.cuda(non_blocking=True)
 
-                    loss_vals.append(loss.data.cpu().numpy())
-                    batch_sizes.append(inputv_this.shape[0])
+                batch_actual_size = inputv_this.shape[0]
+                output = self.neural_net(inputv_this)
+                criterion = nn.MSELoss()
+                loss = criterion(output, target_this)
 
-                inputv_this = inputv_next
-                target_this = target_next
+                loss_vals.append(loss.data.item())
+                batch_sizes.append(batch_actual_size)
 
             return -1 * np.average(loss_vals, weights=batch_sizes)
 
@@ -404,11 +373,11 @@ n_train = x_train.shape[0] - n_test
 
     def _construct_neural_net(self):
         class NeuralNet(nn.Module):
-            def __init__(self, x_dim, y_dim, nhlayers,
-                         hl_nnodes, convolutional):
+            def __init__(self, x_dim, y_dim, num_layers,
+                         hidden_size, convolutional):
                 super(NeuralNet, self).__init__()
 
-                output_hl_size = int(hl_nnodes)
+                output_hl_size = int(hidden_size)
                 self.dropl = nn.Dropout(p=0.5)
                 self.convolutional = convolutional
                 next_input_l_size = x_dim
@@ -445,7 +414,7 @@ n_train = x_train.shape[0] - n_test
 
                 llayers = []
                 normllayers = []
-                for i in range(nhlayers):
+                for i in range(num_layers):
                     llayers.append(nn.Linear(next_input_l_size,
                                              output_hl_size))
                     normllayers.append(nn.BatchNorm1d(output_hl_size))
@@ -457,7 +426,7 @@ n_train = x_train.shape[0] - n_test
 
                 self.fc_last = nn.Linear(next_input_l_size, y_dim)
                 self._initialize_layer(self.fc_last)
-                self.nhlayers = nhlayers
+                self.num_layers = num_layers
 
             def forward(self, x):
                 if self.convolutional:
@@ -470,7 +439,7 @@ n_train = x_train.shape[0] - n_test
                         x = fpo(x)
                     x = x.view(x.size(0), -1)
 
-                for i in range(self.nhlayers):
+                for i in range(self.num_layers):
                     fc = self.llayers[i]
                     fcn = self.normllayers[i]
                     x = fcn(F.elu(fc(x)))
@@ -485,7 +454,7 @@ n_train = x_train.shape[0] - n_test
                 nn.init.xavier_normal_(layer.weight, gain=gain)
 
         self.neural_net = NeuralNet(self.x_dim, self.y_dim,
-                                    self.nhlayers, self.hl_nnodes,
+                                    self.num_layers, self.hidden_size,
                                     self.convolutional)
 
     def __getstate__(self):
@@ -600,9 +569,9 @@ class NNPTest():
             self.score_permuted = np.array(scores[1:])
 
             n1 = (self.score_unpermuted <=
-                self.score_permuted).sum() / nperm
+                self.score_permuted).sum() / (nperm - 1)
             n2 = (self.score_unpermuted <
-                self.score_permuted).sum() / nperm
+                self.score_permuted).sum() / (nperm - 1)
 
             self.pvalue = (n1 + n2) / 2
         else:
