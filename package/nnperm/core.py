@@ -595,8 +595,7 @@ class NNPTest():
 
             #H0: population1.mean() >= population2.mean()
             def one_tailed_test(sample1, sample2):
-                pvalue = stats.ttest_ind(sample1, sample2,
-                    equal_var=False).pvalue
+                pvalue = stats.ttest_rel(sample1, sample2).pvalue
                 if sample1.mean() <= sample2.mean():
                     pvalue /= 2
                 else:
