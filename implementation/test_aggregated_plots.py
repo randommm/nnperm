@@ -20,7 +20,7 @@ import itertools
 from plotnine import *
 from db_structure import Result
 
-df = pd.DataFrame(list(Result.select().dicts()))
+df = pd.DataFrame(list(Result.select().where(Result.complexity==2).dicts()))
 
 def plotcdfs(df, distribution, power=0.05):
     idx1 = df['distribution'] == distribution
@@ -97,7 +97,7 @@ def plotcdfs(df, distribution, power=0.05):
 
     return plot
 
-for distribution in range(4):
+for distribution in range(5):
     for retrain_permutations in [True, False]:
         filename = "plots/"
         filename += "aggregated"

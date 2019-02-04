@@ -196,7 +196,7 @@ n_train = x_train.shape[0] - n_test
         batch_max_size = min(self.batch_max_size, inputv_train.shape[0])
         self.loss_history_train = []
 
-        start_time = time.process_time()
+        start_time = time.time()
 
         lr = 0.1
         optimizer = optim.Adamax(self.neural_net.parameters(), lr=lr,
@@ -275,7 +275,7 @@ n_train = x_train.shape[0] - n_test
                     self.neural_net.load_state_dict(best_state_dict)
                 break
 
-        elapsed_time = time.process_time() - start_time
+        elapsed_time = time.time() - start_time
         if self.verbose >= 1:
             print("Elapsed time:", elapsed_time, flush=True)
 
@@ -496,7 +496,7 @@ class NNPTest():
             x_train = x_train[:, None]
         if len(x_to_permutate.shape) == 1:
             x_to_permutate = x_to_permutate[:, None]
-        start_time = time.process_time()
+        start_time = time.time()
 
         nobs = y_train.shape[0]
         ntest = round(nobs * prop_test)
@@ -522,7 +522,7 @@ class NNPTest():
         if method == "remove" and not retrain_permutations:
             raise ValueError("retrain_permutations must be true when" +
                 " method=='remove'")
-        for i in range(nperm):
+        for i in range(nperm+1):
             if i >= 2 and (method == "shuffle_once" or method == "remove"):
                 break
 
@@ -537,21 +537,36 @@ class NNPTest():
 
             if retrain_permutations or i == 0:
                 if estimator == "ann":
-                    nn_predict_obj = NNPredict(*args, **kwargs)
+                    c_objs = [
+                        NNPredict(*args, **kwargs),
+                        NNPredict(*args, **kwargs),
+                        NNPredict(*args, **kwargs),
+                    ]
+                    for c_obj in c_objs:
+                        c_obj.fit(x_train_stacked, y_train)
+
+                    best = np.argmin([
+                        c_objs[0].loss_history_validation[-1],
+                        c_objs[1].loss_history_validation[-1],
+                        c_objs[2].loss_history_validation[-1],
+                    ])
+                    predict_obj = c_objs[best]
+
                 elif estimator == "rf":
-                    nn_predict_obj = RandomForestRegressor(*args,
+                    predict_obj = RandomForestRegressor(*args,
                         **kwargs)
+                    predict_obj.fit(x_train_stacked, y_train)
                 elif estimator == "linear":
-                    nn_predict_obj = LinearRegression(*args, **kwargs)
+                    predict_obj = LinearRegression(*args, **kwargs)
+                    predict_obj.fit(x_train_stacked, y_train)
                 else:
                     raise ValueError("invalid estimator argument")
-                nn_predict_obj.fit(x_train_stacked, y_train)
 
             if method == "permutation":
-                score = nn_predict_obj.score(x_test_stacked, y_test)
+                score = predict_obj.score(x_test_stacked, y_test)
                 scores.append(score)
             else:
-                score = nn_predict_obj.predict(x_test_stacked)
+                score = predict_obj.predict(x_test_stacked)
                 if len(score.shape) == 1:
                     score = score[:, None]
                 score = (score - y_test)**2
@@ -562,16 +577,16 @@ class NNPTest():
 
             if retrain_permutations and method == "permutation":
                 print(">>>> Trained", i+1,
-                    "neural networks out of", nperm)
+                    "neural networks out of", nperm+1)
 
         if method == "permutation":
             self.score_unpermuted = scores[0]
             self.score_permuted = np.array(scores[1:])
 
             n1 = (self.score_unpermuted <=
-                self.score_permuted).sum() / (nperm - 1)
+                self.score_permuted).sum() / (nperm)
             n2 = (self.score_unpermuted <
-                self.score_permuted).sum() / (nperm - 1)
+                self.score_permuted).sum() / (nperm)
 
             self.pvalue = (n1 + n2) / 2
         else:
@@ -593,5 +608,5 @@ class NNPTest():
             self.pvalue
 
 
-        self.elapsed_time = time.process_time() - start_time
+        self.elapsed_time = time.time() - start_time
         print("Total testing time:", self.elapsed_time, flush=True)

@@ -82,7 +82,7 @@ def plotcdfs(distribution, retrain_permutations, db_size, estimator):
         ps.savefig(ax.get_figure(), bbox_inches='tight')
     plt.close(ax.get_figure())
 
-for distribution in range(4):
+for distribution in range(5):
     for retrain_permutations in [True, False]:
         for db_size in [1_000, 10_000]:
             for estimator in ["ann", "rf", "linear"]:

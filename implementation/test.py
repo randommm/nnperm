@@ -30,7 +30,7 @@ db_size_sample = [1_000, 10_000]
 betat_sample = [0, 0.01, 0.1, 0.6]
 method_sample = ["permutation", "remove", "shuffle_once"]
 
-if estimator != "linear":
+if estimator == "rf":
     complexity_sample = [1, 2]
 else:
     complexity_sample = [1]
@@ -94,7 +94,7 @@ while full_sample:
         verbose=1,
         es=True,
         hidden_size=hidden_size,
-        num_layers=complexity * 10,
+        num_layers=complexity * 5,
         y_train = y_train,
         x_train = np.delete(x_train, feature_to_test, 1),
         x_to_permutate = x_train[:, feature_to_test],
