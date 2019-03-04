@@ -11,7 +11,7 @@
 #GNU General Public License for more details.
 
 #You should have received a copy of the GNU General Public License
-#along with this program.    If not, see <http://www.gnu.org/licenses/>.
+#along with this program. If not, see <http://www.gnu.org/licenses/>.
 #----------------------------------------------------------------------
 
 import numpy as np
@@ -20,7 +20,7 @@ import itertools
 from plotnine import *
 from db_structure import Result
 
-df = pd.DataFrame(list(Result.select().where(Result.complexity==2).dicts()))
+df = pd.DataFrame(list(Result.select().where(Result.complexity==1, Result.method!='remove', ((Result.retrain_permutations!=0) or (Result.distribution>=2))).dicts()))
 
 def plotcdfs(df, distribution, power=0.05):
     idx1 = df['distribution'] == distribution
@@ -44,13 +44,18 @@ def plotcdfs(df, distribution, power=0.05):
         pvalue_max = np.max(dfs['pvalue'])
 
         #new column
-        retrain_permutations = np.array(dfs['retrain_permutations'])
-        retrain_permutations = np.array(retrain_permutations,
+        retrain = np.array(dfs['retrain_permutations'])
+        retrain = np.array(retrain,
             dtype=bool)
-        retrain_permutations = np.array(retrain_permutations,
-            dtype="str")
-        to_append = map('\n'.join, zip(dfs["method"], retrain_permutations))
-        dfs['retrain_and_method'] = list(to_append)
+        method = np.array(dfs['method'])
+        for i in range(len(method)):
+            if method[i] == 'permutation':
+                method[i] = 'COINP'
+            if method[i] == 'shuffle_once':
+                method[i] = 'CPI'
+            if (not retrain[i]) and method[i] != "remove":
+                method[i] = "Approximate " + method[i]
+        dfs['retrain_and_method'] = list(method)
 
 
         dfs['betat'] = np.array(dfs['betat'], dtype="str")
@@ -90,7 +95,7 @@ def plotcdfs(df, distribution, power=0.05):
              panel_border=element_blank(),
              )
 
-    plot += ggtitle("Distribution " + str(distribution))
+    plot += ggtitle("Distribution " + str(distribution+1))
     plot += ylab("Test power")
     plot += xlab("Method and retrain")
     plot += lims(y=(0, np.max(dfs['pvalue'])+2))
@@ -98,9 +103,8 @@ def plotcdfs(df, distribution, power=0.05):
     return plot
 
 for distribution in range(5):
-    for retrain_permutations in [True, False]:
-        filename = "plots/"
-        filename += "aggregated"
-        filename += "_distribution" + str(distribution)
-        filename += ".pdf"
-        plotcdfs(df.copy(), distribution).save(filename)
+    filename = "plots/"
+    filename += "aggregated"
+    filename += "_distribution" + str(distribution+1)
+    filename += ".pdf"
+    plotcdfs(df.copy(), distribution).save(filename)

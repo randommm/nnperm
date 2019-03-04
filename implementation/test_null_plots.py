@@ -28,20 +28,24 @@ def ecdf(x, ax, *args, **kwargs):
     yc = np.concatenate(([0], y))
     ax.step(xc, yc, *args, **kwargs)
 
-cls = [":", "-.", "--", '-']
-clw = [1.0, 2.0, 1.5, 3.0, 0.5, 4.0]
+cls = ["-.", ":", '-', "--"]
+clw = [2.0, 1.0, 3.0, 1.5, 0.5, 4.0]
 clws = list(itertools.product(clw, cls))
+colors = ['red', 'black', 'green', 'blue', 'yellow']
 
-df = pd.DataFrame(list(Result.select().where(Result.betat==0).dicts()))
+df = pd.DataFrame(list(Result.select().where(Result.complexity==1, Result.betat==0).dicts()))
 
 #for db_size in np.sort(db_size_sample):
 
 def plotcdfs(distribution, method, retrain_permutations, db_size,
         estimator, dfpvalues, i, ax):
     label = str(method)
-    if retrain_permutations and method != "remove":
-        label += " retrain"
-
+    if label == 'permutation':
+        label = 'COINP'
+    if label == 'shuffle_once':
+        label = 'CPI'
+    if (not retrain_permutations) and method != "remove":
+        label = "Approximate " + label
 
     idx1 = df['betat'] == 0.0
     idx2 = df['db_size'] == db_size
@@ -67,11 +71,12 @@ def plotcdfs(distribution, method, retrain_permutations, db_size,
         dfpvalues.loc["new"] = vals
         dfpvalues.index = range(dfpvalues.shape[0])
 
-    if db_size == 1000:
-        return
-
-    ecdf(pvals, ax, label=label, linestyle=clws[i[0]][1],
-         lw=clws[i[0]][0])
+    if estimator == 'ann' and distribution == 0:
+        ecdf(pvals, ax, label=label, linestyle=clws[i[0]][1],
+             lw=clws[i[0]][0], color=colors[i[0]])
+    else:
+        ecdf(pvals, ax, linestyle=clws[i[0]][1],
+             lw=clws[i[0]][0], color=colors[i[0]])
     i[0] += 1
 
 dfpvalues = [
@@ -81,37 +86,43 @@ dfpvalues = [
 dfpvalues = pd.DataFrame(columns=dfpvalues)
 
 method_sample = ["permutation", "remove", "shuffle_once"]
-fig = plt.figure(figsize=[11.4, 16.9])
-axarr = fig.subplots(4, 3)
-fig.subplots_adjust(wspace=0.17, hspace=0.17)
+method_sample = ["permutation", "shuffle_once"]
 
-for distribution in range(4):
-    for est_ind, estimator in enumerate(["ann", "rf", "linear"]):
-        ax = axarr[distribution, est_ind]
-        ax.plot(np.linspace(0, 1, 10000), np.linspace(0, 1, 10000))
-        i = [0]
-        for method in np.sort(method_sample):
-            for retrain_permutations in [True, False]:
-                for db_size in [1_000, 10_000]:
+for db_size in [1_000, 10_000]:
+    fig = plt.figure(figsize=[11.4, 16.9])
+    axarr = fig.subplots(4, 3)
+    fig.subplots_adjust(wspace=0.25, hspace=0.3)
+    for distribution in range(4):
+        for est_ind, estimator in enumerate(["ann", "rf", "linear"]):
+            ax = axarr[distribution, est_ind]
+            ax.plot(np.linspace(0, 1, 10000), np.linspace(0, 1, 10000))
+            i = [0]
+            for method in np.sort(method_sample):
+                for retrain_permutations in [True, False]:
                     if retrain_permutations or not method == "remove":
                         plotcdfs(distribution, method,
                             retrain_permutations, db_size,
                             estimator, dfpvalues, i, ax)
-        ax.legend(loc="auto", frameon=False,
-                  ncol=1, borderaxespad=0.2)
-        ax.set_ylim(0, 1.6)
-        #ax.set_xlim(-0.1, 1.1)
-        ax.set_title("Distribution " + str(distribution)
-            + " (" + str(estimator).upper() + ")")
-plt.setp([a.get_xticklabels() for a in axarr[1:3, :].reshape(-1)],
-    visible=False)
-plt.setp([a.get_yticklabels() for a in axarr[:, 1:2].reshape(-1)],
-    visible=False)
+            ax.set_ylim(0, 1.05)
+            ax.set_xlabel('p-value')
+            ax.set_ylabel('Cumulative probability')
+            #ax.set_xlim(-0.1, 1.1)
+            ax.set_title("Distribution " + str(distribution+1)
+                + " (" + str(estimator).upper() + ")")
+    #plt.setp([a.get_xticklabels() for a in axarr[1:3, :].reshape(-1)],
+    #    visible=False)
+    #plt.setp([a.get_yticklabels() for a in axarr[:, 1:2].reshape(-1)],
+    #    visible=False)
 
-filename = "plots/"
-filename += "null.pdf"
-with PdfPages(filename) as ps:
-    ps.savefig(fig, bbox_inches='tight')
-plt.close(fig)
+    fig.legend(loc='upper center', borderaxespad=5.1, ncol=4
+       , fancybox=True, shadow=True, columnspacing=6.5)
 
-print(dfpvalues.to_latex())
+    filename = "plots/"
+    filename += "null_db_size_of_"
+    filename += str(db_size)
+    filename += ".pdf"
+    with PdfPages(filename) as ps:
+        ps.savefig(fig, bbox_inches='tight')
+    plt.close(fig)
+
+    print(dfpvalues.to_latex())

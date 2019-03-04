@@ -29,13 +29,16 @@ while estimator == "":
 db_size_sample = [1_000, 10_000]
 betat_sample = [0, 0.01, 0.1, 0.6]
 method_sample = ["permutation", "remove", "shuffle_once"]
+method_sample = ["permutation", "shuffle_once"]
 
 if estimator == "rf":
     complexity_sample = [1, 2]
 else:
     complexity_sample = [1]
 
-distribution_sample = range(5)
+complexity_sample = [1]
+
+distribution_sample = range(4)
 retrain_permutations_sample = [True, False]
 full_sample = set(itertools.product(db_size_sample, betat_sample,
     retrain_permutations_sample, distribution_sample, method_sample,
