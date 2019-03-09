@@ -15,54 +15,62 @@
 #----------------------------------------------------------------------
 
 import numpy as np
+import pandas as pd
 from nnperm import NNPTest
 import itertools
-from generate_data import generate_data
-from db_structure import Result, db
+import os
+from peewee import *
 import os
 from sstudy_storage import do_simulation_study
 
-estimator = os.environ['estimator'] if 'estimator' in os.environ else ''
-while estimator == "":
-    print("Set estimator")
-    estimator = input("")
+# Prepare storage dataset
+db = SqliteDatabase('real_data.sqlite3')
+class Result(Model):
+    estimator = TextField()
+    method = TextField()
+    retrain_permutations = IntegerField()
+    feature_tested = IntegerField()
+    pvalue = DoubleField()
+    elapsed_time = DoubleField()
 
+    class Meta:
+        database = db
+Result.create_table()
+
+# Prepare training dataset
+# Data from https://github.com/vgeorge/pnad-2015/tree/master/dados
+df = pd.read_csv("sgemm_product.csv")
+mean_col = df.iloc[:, -1] + df.iloc[:, -2]
+mean_col += df.iloc[:, -3] + df.iloc[:, -4]
+mean_col /= 4
+df = pd.concat([df.iloc[:, :14], mean_col], axis=1)
+columns = list(df.columns)
+columns[-1] = "run (ms)"
+df.columns = columns
+y_train = np.array(df)[:, -1:]
+x_train = np.array(df)[:, :-1]
+
+# Permutations to run
 to_sample = dict(
-    distribution = range(4),
+    estimator = ['ann', 'rf', 'linear'],
     method = ["permutation", "shuffle_once"],
-    db_size = [1_000, 10_000],
-    betat = [0, 0.01, 0.1, 0.6],
     retrain_permutations = [True, False],
-    complexity = [1],
-    estimator = [estimator],
+    feature_tested = range(15),
 )
 
-def func(
-    distribution,
+def func(estimator,
     method,
-    db_size,
-    betat,
     retrain_permutations,
-    complexity,
-    estimator,
-    ):
-    hidden_size = 100
-    n_train = db_size
-    x_train, y_train = generate_data(n_train, betat, distribution)
+    feature_tested,):
 
-    if distribution == 1:
-        feature_to_test = 3
-    elif distribution == 0 or distribution == 2 or distribution == 3:
-        feature_to_test = 1
-    elif distribution == 4:
-        feature_to_test = 0
+    hidden_size = 100
 
     if estimator == "ann":
         nn_obj = NNPTest(
         verbose=1,
         es=True,
         hidden_size=hidden_size,
-        num_layers=complexity * 5,
+        num_layers=5,
         y_train = y_train,
         x_train = np.delete(x_train, feature_to_test, 1),
         x_to_permutate = x_train[:, feature_to_test],
@@ -78,7 +86,7 @@ def func(
         retrain_permutations = retrain_permutations,
         estimator = "rf",
         method = method,
-        n_estimators = complexity * 300,
+        n_estimators = 300,
         )
     elif estimator == "linear":
         nn_obj = NNPTest(
@@ -94,4 +102,4 @@ def func(
         pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time,
     )
 
-do_simulation_study(to_sample, func, db, Result, max_count=200)
+do_simulation_study(to_sample, func, db, Result, max_count=1)
