@@ -25,7 +25,11 @@ cls = ["-", ":", "-.", "--"]
 clw = [1.0, 2.0, 1.5, 3.0, 0.5, 4.0]
 clws = list(itertools.product(clw, cls))
 
-df = pd.DataFrame(list(Result.select().dicts()))
+df = pd.DataFrame(list(Result
+    .select()
+    .where(Result.complexity==1)
+    .dicts()
+))
 
 #for db_size in np.sort(db_size_sample):
 
