@@ -20,7 +20,7 @@ import itertools
 from generate_data import generate_data
 from db_structure import Result, db
 import os
-from sstudy_storage import do_simulation_study
+from sstudy import do_simulation_study
 
 estimator = os.environ['estimator'] if 'estimator' in os.environ else ''
 while estimator == "":
