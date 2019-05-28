@@ -20,43 +20,61 @@ from nnperm import NNPTest
 import itertools
 import os
 from peewee import *
-import os
-from sstudy_storage import do_simulation_study
+from sstudy import do_simulation_study
 
 # Prepare storage dataset
-db = SqliteDatabase('real_data.sqlite3')
-class Result(Model):
+db = SqliteDatabase('results.sqlite3')
+class ResultRealData(Model):
     estimator = TextField()
     method = TextField()
     retrain_permutations = IntegerField()
-    feature_tested = IntegerField()
+    feature_tested = BlobField()
     pvalue = DoubleField()
     elapsed_time = DoubleField()
 
     class Meta:
         database = db
-Result.create_table()
+ResultRealData.create_table()
 
 # Prepare training dataset
 # Data from https://github.com/vgeorge/pnad-2015/tree/master/dados
-df = pd.read_csv("sgemm_product.csv")
-mean_col = df.iloc[:, -1] + df.iloc[:, -2]
-mean_col += df.iloc[:, -3] + df.iloc[:, -4]
-mean_col /= 4
-df = pd.concat([df.iloc[:, :14], mean_col], axis=1)
-columns = list(df.columns)
-columns[-1] = "run (ms)"
-df.columns = columns
-y_train = np.array(df)[:, -1:]
-x_train = np.array(df)[:, :-1]
+df = pd.read_csv("dbs/diamonds.csv")
+df = df.iloc[:, 1:]
+dummies = ['cut', 'color', 'clarity']
+for column in dummies:
+    new_df = pd.get_dummies(df[column], dummy_na=False,
+                            drop_first=True, prefix=column)
+    df = pd.concat([df, new_df], axis=1)
+    df = df.drop(column, 1)
+
+ndf = df.reindex(np.random.permutation(df.index))
+y_train = np.array(ndf[["price"]])
+x_train = ndf.drop("price", 1)
+columns = x_train.columns
+x_train = np.array(x_train)
+
+to_remove = []
+to_add = []
+for c in dummies:
+    dcols = [x[:len(c)+1] == c+"_" for x in columns]
+    dcols, = np.where(dcols)
+    dcols = list(dcols)
+    to_remove.extend(dcols)
+    to_add.append(tuple(dcols))
+feature_tested = range(len(columns))
+feature_tested = list(np.delete(feature_tested, to_remove))
+feature_tested.extend(to_add)
 
 # Permutations to run
 to_sample = dict(
     estimator = ['ann', 'rf', 'linear'],
     method = ["permutation", "shuffle_once"],
     retrain_permutations = [True, False],
-    feature_tested = range(15),
+    feature_tested = feature_tested,
 )
+
+if 'estimator' in os.environ:
+    to_sample['estimator'] = [os.environ['estimator']]
 
 def func(estimator,
     method,
@@ -67,13 +85,13 @@ def func(estimator,
 
     if estimator == "ann":
         nn_obj = NNPTest(
-        verbose=1,
+        verbose=2,
         es=True,
         hidden_size=hidden_size,
         num_layers=5,
         y_train = y_train,
-        x_train = np.delete(x_train, feature_to_test, 1),
-        x_to_permutate = x_train[:, feature_to_test],
+        x_train = np.delete(x_train, feature_tested, 1),
+        x_to_permutate = x_train[:, feature_tested],
         retrain_permutations = retrain_permutations,
         estimator = estimator,
         method = method,
@@ -81,8 +99,8 @@ def func(estimator,
     elif estimator == "rf":
         nn_obj = NNPTest(
         y_train = y_train,
-        x_train = np.delete(x_train, feature_to_test, 1),
-        x_to_permutate = x_train[:, feature_to_test],
+        x_train = np.delete(x_train, feature_tested, 1),
+        x_to_permutate = x_train[:, feature_tested],
         retrain_permutations = retrain_permutations,
         estimator = "rf",
         method = method,
@@ -91,8 +109,8 @@ def func(estimator,
     elif estimator == "linear":
         nn_obj = NNPTest(
         y_train = y_train,
-        x_train = np.delete(x_train, feature_to_test, 1),
-        x_to_permutate = x_train[:, feature_to_test],
+        x_train = np.delete(x_train, feature_tested, 1),
+        x_to_permutate = x_train[:, feature_tested],
         retrain_permutations = retrain_permutations,
         estimator = "linear",
         method = method,
@@ -102,4 +120,4 @@ def func(estimator,
         pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time,
     )
 
-do_simulation_study(to_sample, func, db, Result, max_count=1)
+do_simulation_study(to_sample, func, db, ResultRealData, max_count=1)
