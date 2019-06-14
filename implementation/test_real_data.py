@@ -19,22 +19,8 @@ import pandas as pd
 from nnperm import NNPTest
 import itertools
 import os
-from peewee import *
+from db_structure_real_data import ResultRealData, db
 from sstudy import do_simulation_study
-
-# Prepare storage dataset
-db = SqliteDatabase('results.sqlite3')
-class ResultRealData(Model):
-    estimator = TextField()
-    method = TextField()
-    retrain_permutations = IntegerField()
-    feature_tested = BlobField()
-    pvalue = DoubleField()
-    elapsed_time = DoubleField()
-
-    class Meta:
-        database = db
-ResultRealData.create_table()
 
 # Prepare training dataset
 # Data from https://github.com/vgeorge/pnad-2015/tree/master/dados
@@ -65,6 +51,13 @@ feature_tested = range(len(columns))
 feature_tested = list(np.delete(feature_tested, to_remove))
 feature_tested.extend(to_add)
 
+# Code to obtain RF importance measures:
+# from sklearn.ensemble import RandomForestRegressor
+# rf = RandomForestRegressor(300).fit(x_train, y_train)
+# res = [np.sum(rf.feature_importances_[np.array(x)])
+#     for x in feature_tested]
+# print(["{0:.2f}".format(x) for x in res])
+
 # Permutations to run
 to_sample = dict(
     estimator = ['ann', 'rf', 'linear'],
@@ -85,7 +78,7 @@ def func(estimator,
 
     if estimator == "ann":
         nn_obj = NNPTest(
-        verbose=2,
+        verbose=1,
         es=True,
         hidden_size=hidden_size,
         num_layers=5,

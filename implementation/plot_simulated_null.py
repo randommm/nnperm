@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from db_structure import Result
 
-def ecdf(x, ax, *args, **kwargs):
+def ecdf_plot(x, ax, *args, **kwargs):
     xc = np.concatenate(([0], np.sort(x), [1]))
     y = np.linspace(0, 1, len(x) + 1)
     yc = np.concatenate(([0], y))
@@ -72,10 +72,10 @@ def plotcdfs(distribution, method, retrain_permutations, db_size,
         dfpvalues.index = range(dfpvalues.shape[0])
 
     if estimator == 'ann' and distribution == 0:
-        ecdf(pvals, ax, label=label, linestyle=clws[i[0]][1],
+        ecdf_plot(pvals, ax, label=label, linestyle=clws[i[0]][1],
              lw=clws[i[0]][0], color=colors[i[0]])
     else:
-        ecdf(pvals, ax, linestyle=clws[i[0]][1],
+        ecdf_plot(pvals, ax, linestyle=clws[i[0]][1],
              lw=clws[i[0]][0], color=colors[i[0]])
     i[0] += 1
 

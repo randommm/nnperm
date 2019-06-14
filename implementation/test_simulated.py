@@ -28,7 +28,7 @@ while estimator == "":
     estimator = input("")
 
 to_sample = dict(
-    distribution = range(4),
+    distribution = range(5),
     method = ["permutation", "shuffle_once"],
     db_size = [1_000, 10_000],
     betat = [0, 0.01, 0.1, 0.6],

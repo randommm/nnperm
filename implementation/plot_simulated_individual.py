@@ -21,6 +21,12 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from db_structure import Result
 
+def ecdf_plot(x, ax, *args, **kwargs):
+    xc = np.concatenate(([0], np.sort(x), [1]))
+    y = np.linspace(0, 1, len(x) + 1)
+    yc = np.concatenate(([0], y))
+    ax.step(xc, yc, *args, **kwargs)
+
 cls = ["-", ":", "-.", "--"]
 clw = [1.0, 2.0, 1.5, 3.0, 0.5, 4.0]
 clws = list(itertools.product(clw, cls))
@@ -69,7 +75,7 @@ def plotcdfs(distribution, retrain_permutations, db_size, estimator):
             #    pvals[j] = 2 * pvals[j] if pvals[j] <= 0.5 else 2 * (1 - pvals[j])
             #pvals = np.sort(pvals)
 
-            ax.step(pvals, np.linspace(0, 1, len(pvals), False), label=label,
+            ecdf_plot(pvals, ax, label=label,
                 linestyle=clws[i][1], lw=clws[i][0])
             i += 1
 
