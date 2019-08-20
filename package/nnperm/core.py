@@ -517,16 +517,18 @@ class NNPTest():
 
         scores = []
 
-        if method not in ["shuffle_once", "remove", "permutation"]:
+        valid_methods = ["shuffle_once", "remove", "permutation", "cpi"]
+        if method not in valid_methods:
             raise ValueError("invalid method argument")
         if method == "remove" and not retrain_permutations:
             raise ValueError("retrain_permutations must be true when" +
                 " method=='remove'")
         for i in range(nperm+1):
-            if i >= 2 and (method == "shuffle_once" or method == "remove"):
+            if i >= 2 and (method == "shuffle_once"
+                or method == "remove" or method == "cpi"):
                 break
 
-            if i == 0 or method == "shuffle_once" or method == "permutation":
+            if i == 0 or method == "shuffle_once" or method == "permutation" or method == "cpi":
                 x_train_stacked = np.column_stack([x_train,
                     x_to_permutate_train])
                 x_test_stacked = np.column_stack([x_test,
@@ -572,8 +574,29 @@ class NNPTest():
                 score = (score - y_test)**2
                 scores.append(score)
 
-            x_to_permutate_test = x_to_permutate_test[np.random.permutation(range(ntest))]
-            x_to_permutate_train = x_to_permutate_train[np.random.permutation(range(ntrain))]
+            if method == "cpi":
+                if retrain_permutations:
+                    raise ValueError("cpi must not have retrain")
+                import rpy2.robjects as ro
+                from rpy2.robjects import r
+                from rpy2.robjects import pandas2ri, numpy2ri
+                import rpy2.robjects.packages as rpackages
+
+                numpy2ri.activate()
+                pandas2ri.activate()
+                rpackages.importr('knockoff')
+                # x_to_permutate_test_old = x_to_permutate_test.copy()
+                r.assign('x_mat', x_test_stacked.copy())
+                r("""
+                x_mat <- as.matrix(x_mat)
+                x_mat <- knockoff::create.second_order(x_mat)
+                """)
+                x_mat = ro.r['x_mat']
+                ncols = x_to_permutate_test.shape[1]
+                x_to_permutate_test = x_mat[:, -ncols:]
+            else:
+                x_to_permutate_test = x_to_permutate_test[np.random.permutation(range(ntest))]
+                x_to_permutate_train = x_to_permutate_train[np.random.permutation(range(ntrain))]
 
             if retrain_permutations and method == "permutation":
                 print(">>>> Trained", i+1,

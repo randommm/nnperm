@@ -29,13 +29,27 @@ while estimator == "":
 
 to_sample = dict(
     distribution = range(5),
-    method = ["permutation", "shuffle_once"],
+    #method = ["permutation", "shuffle_once", "cpi"],
+    method = ["cpi"],
     db_size = [1_000, 10_000],
     betat = [0, 0.01, 0.1, 0.6],
     retrain_permutations = [True, False],
     complexity = [1],
     estimator = [estimator],
 )
+
+def sample_filter(
+    distribution,
+    method,
+    db_size,
+    betat,
+    retrain_permutations,
+    complexity,
+    estimator,
+    ):
+    if retrain_permutations and method == "cpi":
+        return False
+    return True
 
 def func(
     distribution,
@@ -94,4 +108,5 @@ def func(
         pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time,
     )
 
-do_simulation_study(to_sample, func, db, Result, max_count=200)
+do_simulation_study(to_sample, func, db, Result, max_count=200,
+    sample_filter=sample_filter)

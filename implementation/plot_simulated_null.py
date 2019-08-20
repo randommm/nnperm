@@ -28,7 +28,7 @@ def ecdf_plot(x, ax, *args, **kwargs):
     yc = np.concatenate(([0], y))
     ax.step(xc, yc, *args, **kwargs)
 
-cls = ["-.", ":", '-', "--"]
+cls = ["-.", ":", '-', "--", 'dotted']
 clw = [2.0, 1.0, 3.0, 1.5, 0.5, 4.0]
 clws = list(itertools.product(clw, cls))
 colors = ['red', 'black', 'green', 'blue', 'yellow']
@@ -43,8 +43,10 @@ def plotcdfs(distribution, method, retrain_permutations, db_size,
     if label == 'permutation':
         label = 'COINP'
     if label == 'shuffle_once':
+        label = 'SCPI'
+    if label == 'cpi':
         label = 'CPI'
-    if (not retrain_permutations) and method != "remove":
+    if (not retrain_permutations) and method not in ["remove", 'cpi']:
         label = "Approximate " + label
 
     idx1 = df['betat'] == 0.0
@@ -86,23 +88,26 @@ dfpvalues = [
 dfpvalues = pd.DataFrame(columns=dfpvalues)
 
 method_sample = ["permutation", "remove", "shuffle_once"]
-method_sample = ["permutation", "shuffle_once"]
+method_sample = ["permutation", "shuffle_once", "cpi"]
 
 for db_size in [1_000, 10_000]:
     fig = plt.figure(figsize=[11.4, 16.9])
-    axarr = fig.subplots(4, 3)
-    fig.subplots_adjust(wspace=0.25, hspace=0.3)
-    for distribution in range(4):
+    axarr = fig.subplots(5, 3)
+    fig.subplots_adjust(wspace=0.25, hspace=0.35)
+    for distribution in range(5):
         for est_ind, estimator in enumerate(["ann", "rf", "linear"]):
             ax = axarr[distribution, est_ind]
             ax.plot(np.linspace(0, 1, 10000), np.linspace(0, 1, 10000))
             i = [0]
             for method in np.sort(method_sample):
                 for retrain_permutations in [True, False]:
-                    if retrain_permutations or not method == "remove":
-                        plotcdfs(distribution, method,
-                            retrain_permutations, db_size,
-                            estimator, dfpvalues, i, ax)
+                    if not retrain_permutations and method == "remove":
+                        continue
+                    if retrain_permutations and method == "cpi":
+                        continue
+                    plotcdfs(distribution, method,
+                        retrain_permutations, db_size,
+                        estimator, dfpvalues, i, ax)
             ax.set_ylim(0, 1.05)
             ax.set_xlabel('p-value')
             ax.set_ylabel('Cumulative probability')
@@ -114,7 +119,7 @@ for db_size in [1_000, 10_000]:
     #plt.setp([a.get_yticklabels() for a in axarr[:, 1:2].reshape(-1)],
     #    visible=False)
 
-    fig.legend(loc='upper center', borderaxespad=5.1, ncol=4
+    fig.legend(loc='upper center', borderaxespad=5.1, ncol=5
        , fancybox=True, shadow=True, columnspacing=6.5)
 
     filename = "plots/"
