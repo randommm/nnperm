@@ -19,6 +19,7 @@ import pandas as pd
 from nnperm import NNPTest
 import itertools
 import os
+from scipy import stats
 from db_structure_real_data import ResultRealData, db
 from sstudy import do_simulation_study
 
@@ -26,6 +27,9 @@ from sstudy import do_simulation_study
 # Data from https://github.com/vgeorge/pnad-2015/tree/master/dados
 df = pd.read_csv("dbs/diamonds.csv")
 df = df.iloc[:, 1:]
+color = pd.factorize(df['color'])[0]
+clarity = pd.factorize(df['clarity'])[0]
+
 dummies = ['cut', 'color', 'clarity']
 for column in dummies:
     new_df = pd.get_dummies(df[column], dummy_na=False,
@@ -33,23 +37,29 @@ for column in dummies:
     df = pd.concat([df, new_df], axis=1)
     df = df.drop(column, 1)
 
-ndf = df.reindex(np.random.permutation(df.index))
-y_train = np.array(ndf[["price"]])
-x_train = ndf.drop("price", 1)
+y_train = np.array(df[["price"]])
+x_train = df.drop("price", 1)
+
+rvs = stats.norm.rvs(size=df.shape[0], random_state=10)
+x_train = x_train.assign(new_var_1=(clarity + rvs))
+x_train = x_train.assign(new_var_2=(clarity + color + rvs))
+
 columns = x_train.columns
 x_train = np.array(x_train)
+
+assert(x_train.shape[1]==25)
 
 to_remove = []
 to_add = []
 for c in dummies:
-    dcols = [x[:len(c)+1] == c+"_" for x in columns]
+    dcols = [x[:len(c) + 1] == c + "_" for x in columns]
     dcols, = np.where(dcols)
     dcols = list(dcols)
     to_remove.extend(dcols)
     to_add.append(tuple(dcols))
-feature_tested = range(len(columns))
-feature_tested = list(np.delete(feature_tested, to_remove))
-feature_tested.extend(to_add)
+features_tested = range(len(columns))
+features_tested = list(np.delete(features_tested, to_remove))
+features_tested.extend(to_add)
 
 # Code to obtain RF importance measures:
 # from sklearn.ensemble import RandomForestRegressor
@@ -61,30 +71,62 @@ feature_tested.extend(to_add)
 # Permutations to run
 to_sample = dict(
     estimator = ['ann', 'rf', 'linear'],
-    method = ["permutation", "shuffle_once"],
+    method = ["permutation", "shuffle_once", "cpi"],
     retrain_permutations = [True, False],
-    feature_tested = feature_tested,
+    feature_tested = features_tested,
+    include_extra = range(3),
 )
 
 if 'estimator' in os.environ:
     to_sample['estimator'] = [os.environ['estimator']]
 
-def func(estimator,
+
+def sample_filter(
+    estimator,
     method,
     retrain_permutations,
-    feature_tested,):
+    feature_tested,
+    include_extra,
+    ):
+    if retrain_permutations and method == "cpi":
+        return False
+    if include_extra == 0 and feature_tested in [23, 24]:
+        return False
+    elif include_extra == 1 and feature_tested == 24:
+        return False
+    elif include_extra == 2 and feature_tested == 23:
+        return False
+    return True
+
+def func(
+    estimator,
+    method,
+    retrain_permutations,
+    feature_tested,
+    include_extra,
+    ):
+
+    feature_testedd = feature_tested
+    if include_extra == 0:
+        x_train_n = np.delete(x_train, [23, 24], 1)
+    elif include_extra == 1:
+        x_train_n = np.delete(x_train, [24], 1)
+    elif include_extra == 2:
+        x_train_n = np.delete(x_train, [23], 1)
+        if feature_tested == 24:
+            feature_testedd = 23 # since feature 23 was deleted
 
     hidden_size = 100
 
     if estimator == "ann":
         nn_obj = NNPTest(
-        verbose=1,
+        verbose=2,
         es=True,
         hidden_size=hidden_size,
         num_layers=5,
         y_train = y_train,
-        x_train = np.delete(x_train, feature_tested, 1),
-        x_to_permutate = x_train[:, feature_tested],
+        x_train = np.delete(x_train_n, feature_testedd, 1),
+        x_to_permutate = x_train_n[:, feature_testedd],
         retrain_permutations = retrain_permutations,
         estimator = estimator,
         method = method,
@@ -92,8 +134,8 @@ def func(estimator,
     elif estimator == "rf":
         nn_obj = NNPTest(
         y_train = y_train,
-        x_train = np.delete(x_train, feature_tested, 1),
-        x_to_permutate = x_train[:, feature_tested],
+        x_train = np.delete(x_train_n, feature_testedd, 1),
+        x_to_permutate = x_train_n[:, feature_testedd],
         retrain_permutations = retrain_permutations,
         estimator = "rf",
         method = method,
@@ -102,8 +144,8 @@ def func(estimator,
     elif estimator == "linear":
         nn_obj = NNPTest(
         y_train = y_train,
-        x_train = np.delete(x_train, feature_tested, 1),
-        x_to_permutate = x_train[:, feature_tested],
+        x_train = np.delete(x_train_n, feature_testedd, 1),
+        x_to_permutate = x_train_n[:, feature_testedd],
         retrain_permutations = retrain_permutations,
         estimator = "linear",
         method = method,
@@ -113,4 +155,5 @@ def func(estimator,
         pvalue=nn_obj.pvalue, elapsed_time=nn_obj.elapsed_time,
     )
 
-do_simulation_study(to_sample, func, db, ResultRealData, max_count=1)
+do_simulation_study(to_sample, func, db, ResultRealData, max_count=1,
+    sample_filter=sample_filter)

@@ -105,7 +105,7 @@ n_train = x_train.shape[0] - n_test
                  batch_initial=300,
                  batch_step_multiplier=1.4,
                  batch_step_epoch_expon=2.0,
-                 batch_max_size=1000,
+                 batch_max_size=800,
 
                  batch_test_size=2000,
                  gpu=True,
@@ -232,6 +232,7 @@ n_train = x_train.shape[0] - n_test
                         if self.verbose >= 2:
                             print("This is the lowest validation loss",
                                   "so far.")
+                        self.best_loss_history_validation = avloss
                     else:
                         es_tries += 1
 
@@ -489,6 +490,7 @@ class NNPTest():
     def __init__(self, x_train, y_train, x_to_permutate, nperm=100,
                  prop_test = 0.1, retrain_permutations=True,
                  estimator = "ann", method = "permutation",
+                 refits_ann = 3,
                  *args, **kwargs):
         if len(y_train.shape) == 1:
             y_train = y_train[:, None]
@@ -497,6 +499,8 @@ class NNPTest():
         if len(x_to_permutate.shape) == 1:
             x_to_permutate = x_to_permutate[:, None]
         start_time = time.time()
+
+        self.refits_ann = refits_ann
 
         nobs = y_train.shape[0]
         ntest = round(nobs * prop_test)
@@ -528,7 +532,7 @@ class NNPTest():
                 or method == "remove" or method == "cpi"):
                 break
 
-            if i == 0 or method == "shuffle_once" or method == "permutation" or method == "cpi":
+            if i == 0 or method != "remove":
                 x_train_stacked = np.column_stack([x_train,
                     x_to_permutate_train])
                 x_test_stacked = np.column_stack([x_test,
@@ -540,17 +544,18 @@ class NNPTest():
             if retrain_permutations or i == 0:
                 if estimator == "ann":
                     c_objs = [
-                        NNPredict(*args, **kwargs),
-                        NNPredict(*args, **kwargs),
-                        NNPredict(*args, **kwargs),
+                        NNPredict(*args, **kwargs)
+                        for _ in range(self.refits_ann)
                     ]
-                    for c_obj in c_objs:
+
+                    [
                         c_obj.fit(x_train_stacked, y_train)
+                        for c_obj in c_objs
+                    ]
 
                     best = np.argmin([
-                        c_objs[0].loss_history_validation[-1],
-                        c_objs[1].loss_history_validation[-1],
-                        c_objs[2].loss_history_validation[-1],
+                        c_obj.best_loss_history_validation
+                        for c_obj in c_objs
                     ])
                     predict_obj = c_objs[best]
 
@@ -562,7 +567,8 @@ class NNPTest():
                     predict_obj = LinearRegression(*args, **kwargs)
                     predict_obj.fit(x_train_stacked, y_train)
                 else:
-                    raise ValueError("invalid estimator argument")
+                    predict_obj = estimator(*args, **kwargs)
+                    predict_obj.fit(x_train_stacked, y_train)
 
             if method == "permutation":
                 score = predict_obj.score(x_test_stacked, y_test)
@@ -599,8 +605,12 @@ class NNPTest():
                 x_to_permutate_train = x_to_permutate_train[np.random.permutation(range(ntrain))]
 
             if retrain_permutations and method == "permutation":
-                print(">>>> Trained", i+1,
-                    "neural networks out of", nperm+1)
+                if estimator == "ann":
+                    refits_p = self.refits_ann
+                else:
+                    refits_p = 1
+                print(">>>> Trained", i*refits_p+1,
+                    "models out of", (nperm+1)*refits_p)
 
         if method == "permutation":
             self.score_unpermuted = scores[0]

@@ -28,9 +28,8 @@ while estimator == "":
     estimator = input("")
 
 to_sample = dict(
-    distribution = range(5),
-    #method = ["permutation", "shuffle_once", "cpi"],
-    method = ["cpi"],
+    distribution = range(6),
+    method = ["permutation", "shuffle_once", "cpi"],
     db_size = [1_000, 10_000],
     betat = [0, 0.01, 0.1, 0.6],
     retrain_permutations = [True, False],
@@ -48,6 +47,8 @@ def sample_filter(
     estimator,
     ):
     if retrain_permutations and method == "cpi":
+        return False
+    if distribution in [4,5] and (betat == 0.01 or db_size == 10000):
         return False
     return True
 
@@ -68,7 +69,7 @@ def func(
         feature_to_test = 3
     elif distribution == 0 or distribution == 2 or distribution == 3:
         feature_to_test = 1
-    elif distribution == 4:
+    elif distribution == 4 or 5:
         feature_to_test = 0
 
     if estimator == "ann":

@@ -33,7 +33,11 @@ clw = [2.0, 1.0, 3.0, 1.5, 0.5, 4.0]
 clws = list(itertools.product(clw, cls))
 colors = ['red', 'black', 'green', 'blue', 'yellow']
 
-df = pd.DataFrame(list(Result.select().where(Result.complexity==1, Result.betat==0).dicts()))
+df = pd.DataFrame(list(Result.select().where(
+    Result.complexity==1,
+    Result.betat==0,
+    Result.distribution!=4,
+    ).dicts()))
 
 #for db_size in np.sort(db_size_sample):
 
@@ -92,9 +96,9 @@ method_sample = ["permutation", "shuffle_once", "cpi"]
 
 for db_size in [1_000, 10_000]:
     fig = plt.figure(figsize=[11.4, 16.9])
-    axarr = fig.subplots(5, 3)
+    axarr = fig.subplots(4, 3)
     fig.subplots_adjust(wspace=0.25, hspace=0.35)
-    for distribution in range(5):
+    for distribution in range(4):
         for est_ind, estimator in enumerate(["ann", "rf", "linear"]):
             ax = axarr[distribution, est_ind]
             ax.plot(np.linspace(0, 1, 10000), np.linspace(0, 1, 10000))

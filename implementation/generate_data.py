@@ -32,6 +32,8 @@ def generate_data(n_gen, betat, distribution):
         return generate_data_3(n_gen, betat)
     elif distribution == 4:
         return generate_data_4(n_gen, betat)
+    elif distribution == 5:
+        return generate_data_5(n_gen, betat)
 
 def generate_data_2(n_gen, betat):
     beta = [3, np.nan]
@@ -43,6 +45,9 @@ def generate_data_2(n_gen, betat):
     mu_gen = np.dot(x_gen, beta)
     y_gen = stats.norm.rvs(scale=0.5, size=n_gen)
     y_gen = mu_gen + y_gen
+
+    assert(y_gen.shape == (n_gen,))
+    assert(x_gen.shape == (n_gen, 2))
 
     return x_gen, y_gen
 
@@ -57,6 +62,9 @@ def generate_data_3(n_gen, betat):
     y_gen = stats.beta.rvs(2, 2)
     y_gen = mu_gen + y_gen
 
+    assert(y_gen.shape == (n_gen,))
+    assert(x_gen.shape == (n_gen, 2))
+
     return x_gen, y_gen
 
 def generate_data_4(n_gen, betat):
@@ -70,6 +78,26 @@ def generate_data_4(n_gen, betat):
     mu_gen = np.dot(x_gen, beta)
     y_gen = stats.norm.rvs(size=n_gen)
     y_gen = mu_gen + y_gen
+
+    assert(y_gen.shape == (n_gen,))
+    assert(x_gen.shape == (n_gen, 2))
+
+    return x_gen, y_gen
+
+def generate_data_5(n_gen, betat):
+    x_gen_1 = stats.norm.rvs(size=[n_gen, 1])
+    x_gen_2 = stats.norm.rvs(size=[n_gen, 1])
+    x_gen = np.column_stack((x_gen_1, x_gen_2))
+
+    mu_gen = x_gen_1 * x_gen_2 * betat + x_gen_2**2
+    y_gen = stats.norm.rvs(size=[n_gen, 1])
+    y_gen = mu_gen + y_gen
+
+    assert(y_gen.shape == (n_gen, 1))
+    y_gen = y_gen[:, 0]
+
+    assert(y_gen.shape == (n_gen, ))
+    assert(x_gen.shape == (n_gen, 2))
 
     return x_gen, y_gen
 
@@ -101,7 +129,12 @@ def generate_data_01(n_gen, betat, distribution):
 
     y_gen = mu_gen + y_gen
 
+    assert(y_gen.shape == (n_gen,))
+
     if distribution == 0:
         x_gen = x_gen[:, [2, 3]]
+        assert(x_gen.shape == (n_gen, 2))
+    else:
+        assert(x_gen.shape == (n_gen, 5))
 
     return x_gen, y_gen
