@@ -36,6 +36,7 @@ class ResultRealData(Model):
     feature_tested = BlobField()
     pvalue = DoubleField()
     elapsed_time = DoubleField()
+    include_extra = IntegerField()
 
     class Meta:
         database = db
