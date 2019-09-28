@@ -90,6 +90,8 @@ def sample_filter(
     ):
     if retrain_permutations and method == "cpi":
         return False
+    if not retrain_permutations and method == "remove":
+        return False
     if include_extra == 0 and feature_tested in [23, 24]:
         return False
     elif include_extra == 1 and feature_tested == 24:

@@ -48,6 +48,8 @@ def sample_filter(
     ):
     if retrain_permutations and method == "cpi":
         return False
+    if not retrain_permutations and method == "remove":
+        return False
     if distribution in [4,5] and (betat == 0.01 or db_size == 10000):
         return False
     return True
