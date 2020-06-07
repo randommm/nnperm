@@ -527,9 +527,8 @@ class NNPTest():
         if method == "remove" and not retrain_permutations:
             raise ValueError("retrain_permutations must be true when" +
                 " method=='remove'")
-        for i in range(nperm+1):
-            if i >= 2 and (method == "shuffle_once"
-                or method == "remove" or method == "cpi"):
+        for i in range(nperm):
+            if i >= 2 and method != "permutation":
                 break
 
             if i == 0 or method != "remove":
@@ -616,12 +615,8 @@ class NNPTest():
             self.score_unpermuted = scores[0]
             self.score_permuted = np.array(scores[1:])
 
-            n1 = (self.score_unpermuted <=
-                self.score_permuted).sum() / (nperm)
-            n2 = (self.score_unpermuted <
-                self.score_permuted).sum() / (nperm)
-
-            self.pvalue = (n1 + n2) / 2
+            self.pvalue = self.score_unpermuted <= self.score_permuted
+            self.pvalue = (self.pvalue.sum() + 1) / nperm
         else:
             self.score_unpermuted = scores[0]
             self.score_permuted = scores[1]

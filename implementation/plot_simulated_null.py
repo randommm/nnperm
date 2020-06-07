@@ -31,12 +31,14 @@ def ecdf_plot(x, ax, *args, **kwargs):
 cls = ["-.", ":", '-', "--", 'dotted']
 clw = [2.0, 1.0, 3.0, 1.5, 0.5, 4.0]
 clws = list(itertools.product(clw, cls))
-colors = ['red', 'black', 'green', 'blue', 'yellow']
+colors = ['red', 'black', 'green', 'blue', 'yellow', 'purple', 'pink',
+    'gray', 'brown', 'orange', 'magenta']
 
 df = pd.DataFrame(list(Result.select().where(
     Result.complexity==1,
     Result.betat==0,
     Result.distribution!=4,
+    Result.method!="remove",
     ).dicts()))
 
 #for db_size in np.sort(db_size_sample):
@@ -50,7 +52,7 @@ def plotcdfs(distribution, method, retrain_permutations, db_size,
         label = 'SCPI'
     if label == 'cpi':
         label = 'CPI'
-    if (not retrain_permutations) and method not in ["remove", 'cpi']:
+    if not retrain_permutations and method != 'cpi':
         label = "Approximate " + label
 
     idx1 = df['betat'] == 0.0
@@ -65,6 +67,8 @@ def plotcdfs(distribution, method, retrain_permutations, db_size,
     idxs = np.logical_and(idxs, idx5)
     idxs = np.logical_and(idxs, idx6)
     pvals = np.sort(df[idxs]['pvalue'])
+    if not len(pvals):
+        return
 
     test_unif = stats.kstest(pvals, 'uniform')
     test_unif = test_unif.pvalue
@@ -91,8 +95,8 @@ dfpvalues = [
     ]
 dfpvalues = pd.DataFrame(columns=dfpvalues)
 
-method_sample = ["permutation", "remove", "shuffle_once"]
-method_sample = ["permutation", "shuffle_once", "cpi"]
+method_sample = ["permutation", "remove", "shuffle_once", "cpi"]
+#method_sample = ["permutation", "shuffle_once", "cpi"]
 
 for db_size in [1_000, 10_000]:
     fig = plt.figure(figsize=[11.4, 16.9])
@@ -105,10 +109,6 @@ for db_size in [1_000, 10_000]:
             i = [0]
             for method in np.sort(method_sample):
                 for retrain_permutations in [True, False]:
-                    if not retrain_permutations and method == "remove":
-                        continue
-                    if retrain_permutations and method == "cpi":
-                        continue
                     plotcdfs(distribution, method,
                         retrain_permutations, db_size,
                         estimator, dfpvalues, i, ax)
@@ -123,8 +123,8 @@ for db_size in [1_000, 10_000]:
     #plt.setp([a.get_yticklabels() for a in axarr[:, 1:2].reshape(-1)],
     #    visible=False)
 
-    fig.legend(loc='upper center', borderaxespad=5.1, ncol=5
-       , fancybox=True, shadow=True, columnspacing=6.5)
+    fig.legend(loc='upper center', borderaxespad=5.1, ncol=6,
+        fancybox=True, shadow=True, columnspacing=6.5)
 
     filename = "plots/"
     filename += "null_db_size_of_"

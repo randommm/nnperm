@@ -96,7 +96,7 @@ def plotcdfs(db_size, betat, distribution):
         ps.savefig(fig, bbox_inches='tight')
     plt.close(fig)
 
-for db_size in [1_000, 10_000]:
+for db_size in [1_000]:
     for betat in [0.1, 0.6]:
         for distribution in [4, 5]:
             plotcdfs(db_size, betat, distribution)

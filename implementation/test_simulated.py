@@ -22,10 +22,10 @@ from db_structure import Result, db
 import os
 from sstudy import do_simulation_study
 
-estimator = os.environ['estimator'] if 'estimator' in os.environ else ''
-while estimator == "":
-    print("Set estimator")
-    estimator = input("")
+if 'estimator' in os.environ:
+    estimator = [os.environ['estimator']]
+else:
+    estimator = ["ann", "rf", "linear"]
 
 to_sample = dict(
     distribution = range(6),
@@ -34,7 +34,7 @@ to_sample = dict(
     betat = [0, 0.01, 0.1, 0.6],
     retrain_permutations = [True, False],
     complexity = [1],
-    estimator = [estimator],
+    estimator = estimator,
 )
 
 def sample_filter(
@@ -52,6 +52,8 @@ def sample_filter(
         return False
     if distribution in [4,5] and (betat == 0.01 or db_size == 10000):
         return False
+    if estimator == 'linear':
+        return 1000
     return True
 
 def func(
